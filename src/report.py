@@ -251,7 +251,7 @@ def section_ablation(abl) -> str:
     out.append(
         f"The two variables any clinician already has — variant type and FVIII "
         f"activity stratum — reach {sd['variant type + severity']['auc']:.4f} on "
-        f"their own. The full engineered set adds **{lift:+.4f} AUC** on top. "
+        f"their own. The full engineered set adds **{_signed(lift)} AUC** on top. "
         f"That is a real but modest gain, and stating it that way is more "
         f"useful than implying the mechanistic features carry the model.\n")
 
@@ -317,11 +317,12 @@ def section_models(cv, blocked, tuning) -> str:
                               key=lambda kv: -kv[1]["nested_auc_mean"]):
             out.append(
                 f"| {name} | {r['nested_auc_mean']:.4f} ± {r['nested_auc_std']:.4f} | "
-                f"{r['inner_best_auc']:.4f} | {r['optimism_from_tuning']:+.4f} |")
+                f"{r['inner_best_auc']:.4f} | "
+                f"{_signed(r['optimism_from_tuning'])} |")
         out.append("")
         worst = max(tuning.values(), key=lambda r: r["optimism_from_tuning"])
         out.append(
-            f"Tuning optimism reaches {worst['optimism_from_tuning']:+.4f} AUC. "
+            f"Tuning optimism reaches {_signed(worst['optimism_from_tuning'])} AUC. "
             f"Any comparison that quotes an inner-loop score — as the reference "
             f"works do — is inflated by roughly that much before any other "
             f"issue is considered.\n")
