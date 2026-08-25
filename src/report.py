@@ -329,6 +329,36 @@ def section_models(cv, blocked, tuning) -> str:
     return "\n".join(out)
 
 
+def section_significance(cmp) -> str:
+    if not cmp:
+        return ""
+    out = ["### 4.2 Which differences are real?\n"]
+    out.append(
+        f"The spread from best to worst in the table above is about 0.035 AUC "
+        f"and the fold-to-fold standard deviation is about 0.03. A ranking "
+        f"alone would therefore invite a claim the data cannot support. Each "
+        f"model below is tested against **{cmp['best_model']}** by DeLong's "
+        f"test on the shared out-of-fold predictions.\n")
+    out.append("| Model | Pooled OOF AUC | Δ vs best | p | Verdict |")
+    out.append("|---|---|---|---|---|")
+    for name, r in cmp["vs_best"].items():
+        p = "—" if r["p_value"] is None else f"{r['p_value']:.4f}"
+        out.append(f"| {name} | {r['oof_auc']:.4f} | {_signed(r['delta_vs_best'])} "
+                   f"| {p} | {r['verdict']} |")
+    out.append("")
+    out.append(f"**{cmp['note']}**\n")
+    out.append(
+        "The result is two tiers rather than one winner. A top group — bagged "
+        "forests, both ensembles, the deep MLP, the block-attention network and "
+        "penalised logistic regression — cannot be told apart. Below it sits a "
+        "group that genuinely is worse, and it is worth noting what is in that "
+        "group: the boosted models and three of the four reference deep "
+        "architectures, with the deepest of them (ResidualMLP) last. On 369 "
+        "events, capacity is not the binding constraint and adding it costs "
+        "rather than pays.\n")
+    return "\n".join(out)
+
+
 def section_final(final) -> str:
     if not final:
         return ""
@@ -551,6 +581,7 @@ def build() -> Path:
     sub = _load("subgroups")
     quant = _load("quantisation")
     abl = _load("ablation")
+    cmp = _load("model_comparison")
 
     parts = [
         section_header(),
@@ -559,6 +590,7 @@ def build() -> Path:
         section_features(quant),
         section_ablation(abl),
         section_models(cv, blocked, tuning),
+        section_significance(cmp),
         section_final(final),
         section_subgroups(sub),
         section_external(external),
