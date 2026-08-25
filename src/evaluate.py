@@ -26,3 +26,24 @@ from sklearn.metrics import (accuracy_score, average_precision_score,
                              roc_auc_score, roc_curve)
 
 RANDOM_STATE = 42
+
+
+# ---------------------------------------------------------------------------
+# Threshold selection
+# ---------------------------------------------------------------------------
+def youden_threshold(y_true, y_prob) -> float:
+    """Threshold maximising sensitivity + specificity - 1."""
+    fpr, tpr, thr = roc_curve(y_true, y_prob)
+    return float(thr[int(np.argmax(tpr - fpr))])
+
+
+def threshold_at_sensitivity(y_true, y_prob, target: float = 0.90) -> float:
+    """Lowest threshold that still reaches ``target`` sensitivity.
+
+    Clinically this is often the operating point that matters: missing a
+    high-risk patient costs far more than an unnecessary extra inhibitor
+    assay, so sensitivity is fixed first and specificity is whatever follows.
+    """
+    fpr, tpr, thr = roc_curve(y_true, y_prob)
+    ok = np.where(tpr >= target)[0]
+    return float(thr[ok[0]]) if len(ok) else 0.0
