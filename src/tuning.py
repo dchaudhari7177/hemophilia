@@ -164,3 +164,29 @@ def nested_search(X, y, name: str, estimator, space, n_iter: int = 40,
         "params_per_outer_fold": chosen,
         "_estimator": final.best_estimator_,
     }
+
+
+# ---------------------------------------------------------------------------
+# Clinically-constrained booster
+# ---------------------------------------------------------------------------
+def constrained_lightgbm(feature_names: list[str], params: dict | None = None,
+                         random_state: int = RANDOM_STATE):
+    """LightGBM whose response to the established risk factors cannot invert."""
+    import lightgbm as lgb
+
+    base = dict(n_estimators=500, learning_rate=0.02, num_leaves=15,
+                min_child_samples=25, subsample=0.8, subsample_freq=1,
+                colsample_bytree=0.6, reg_lambda=5.0, class_weight="balanced",
+                n_jobs=-1, verbose=-1, random_state=random_state)
+    base.update(params or {})
+    base["monotone_constraints"] = monotone_vector(feature_names)
+    base["monotone_constraints_method"] = "advanced"
+    return lgb.LGBMClassifier(**base)
+
+
+def evaluate(estimator, X, y, cv=None, random_state: int = RANDOM_STATE) -> float:
+    from sklearn.metrics import roc_auc_score
+    cv = cv or StratifiedKFold(5, shuffle=True, random_state=random_state)
+    p = cross_val_predict(build_pipeline(estimator), X, y, cv=cv,
+                          method="predict_proba")[:, 1]
+    return float(roc_auc_score(y, p))
