@@ -32,3 +32,30 @@ from sklearn.model_selection import (RandomizedSearchCV, StratifiedKFold,
 from .models import RANDOM_STATE, build_pipeline
 
 warnings.filterwarnings("ignore")
+
+
+# ---------------------------------------------------------------------------
+# Directional priors from haemophilia immunology
+# ---------------------------------------------------------------------------
+# +1: feature can only increase predicted inhibitor risk
+# -1: feature can only decrease it
+MONOTONE_PRIORS: dict[str, int] = {
+    "is_null_mutation": +1,        # no endogenous FVIII -> never tolerised
+    "is_truncating": +1,
+    "vtype_large_structural": +1,  # large deletions carry the highest risk
+    "vtype_nonsense": +1,
+    "vtype_frameshift": +1,
+    "vtype_missense": -1,          # missense makes protein -> lowest risk
+    "vtype_synonymous": -1,
+    "severity_severe": +1,
+    "severity_mild": -1,
+    "severity_ordinal": +1,
+    "null_and_severe": +1,
+    "fraction_protein_lost": +1,
+    "n_domains_lost": +1,
+}
+
+
+def monotone_vector(feature_names: list[str]) -> list[int]:
+    """Constraint vector aligned to the design matrix, 0 = unconstrained."""
+    return [MONOTONE_PRIORS.get(n, 0) for n in feature_names]
