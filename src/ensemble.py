@@ -40,7 +40,7 @@ def out_of_fold_matrix(models: dict, X, y, n_splits: int = 5,
     return oof, names
 
 
-class StackedEnsemble(BaseEstimator, ClassifierMixin):
+class StackedEnsemble(ClassifierMixin, BaseEstimator):
     """Out-of-fold stacking with a regularised logistic meta-learner.
 
     The meta-learner is deliberately simple. With this few events a flexible
@@ -86,7 +86,7 @@ class StackedEnsemble(BaseEstimator, ClassifierMixin):
         return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
 
 
-class WeightedAverageEnsemble(BaseEstimator, ClassifierMixin):
+class WeightedAverageEnsemble(ClassifierMixin, BaseEstimator):
     """Average of base probabilities, weighted by out-of-fold AUC.
 
     Simpler than stacking and, on small event counts, frequently better: there

@@ -224,7 +224,7 @@ class BioBlockAttentionNet(nn.Module):
 # ---------------------------------------------------------------------------
 # sklearn adapter for the torch models
 # ---------------------------------------------------------------------------
-class TorchClassifier(BaseEstimator, ClassifierMixin):
+class TorchClassifier(ClassifierMixin, BaseEstimator):
     """Wrap a torch module so it behaves like a scikit-learn classifier."""
 
     def __init__(self, builder=None, epochs: int = 200, batch_size: int = 64,

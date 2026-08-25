@@ -96,7 +96,7 @@ class ReportingBiasProbe:
 # ---------------------------------------------------------------------------
 # Semi-supervised self-training
 # ---------------------------------------------------------------------------
-class SelfTrainingSSL(BaseEstimator, ClassifierMixin):
+class SelfTrainingSSL(ClassifierMixin, BaseEstimator):
     """Confidence-capped self-training over the unlabelled pool.
 
     Each round adopts at most ``max_adopt_per_round`` rows, and only those the
