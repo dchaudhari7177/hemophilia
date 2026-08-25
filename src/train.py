@@ -426,6 +426,19 @@ def stage_external(data=None) -> dict:
         "auc_ci": bootstrap_ci(yb, p, "auc_roc"),
         "note": ("Zero-shot transfer: no F9 patient was used at any point in "
                  "training, feature fitting or threshold selection."),
+        "caveat": (
+            "The positional features are computed with FVIII coordinates. "
+            "Factor IX is a 415-residue mature protein against FVIII's 2,332, "
+            "so every F9 variant lands in the low-numbered bins and the domain, "
+            "epitope-distance and truncation-extent features carry no real "
+            "information here -- they are near-constant across the cohort and "
+            "therefore contribute almost nothing to the ranking. What is being "
+            "tested is whether the *consequence-class* signal (null vs missense, "
+            "truncating vs in-frame, splice disruption) plus clinical severity "
+            "transfers across genes. That is the intended test, and it is the "
+            "part of the model that should be gene-agnostic; but the result "
+            "should not be read as evidence that the FVIII structural features "
+            "generalise."),
     }
     _save("external", out)
     return out
