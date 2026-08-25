@@ -129,3 +129,60 @@ def fig_model_comparison():
     _style(ax, "Model comparison on leakage-free features", "AUC-ROC", "")
     ax.legend(fontsize=8, frameon=False, loc="lower right")
     return _save(fig, "02_model_comparison")
+
+
+# ---------------------------------------------------------------------------
+# ROC, precision-recall, calibration, decision curve
+# ---------------------------------------------------------------------------
+def fig_performance_panel():
+    npz = REPORTS / "test_predictions.npz"
+    if not npz.exists():
+        return None
+    from .evaluate import calibration_curve_points, decision_curve
+
+    d = np.load(npz)
+    y, p_cal, p_raw = d["y"], d["p_cal"], d["p_raw"]
+
+    fig, axes = plt.subplots(2, 2, figsize=(10.5, 8.5))
+
+    fpr, tpr, _ = roc_curve(y, p_cal)
+    from sklearn.metrics import auc as _auc
+    axes[0, 0].plot(fpr, tpr, color=PALETTE["primary"], lw=2,
+                    label=f"Model (AUC {_auc(fpr, tpr):.3f})")
+    axes[0, 0].plot([0, 1], [0, 1], "--", color=PALETTE["muted"], lw=1,
+                    label="Chance")
+    _style(axes[0, 0], "ROC curve, held-out test set",
+           "1 - specificity", "Sensitivity")
+    axes[0, 0].legend(fontsize=8, frameon=False, loc="lower right")
+
+    prec, rec, _ = precision_recall_curve(y, p_cal)
+    axes[0, 1].plot(rec, prec, color=PALETTE["primary"], lw=2, label="Model")
+    axes[0, 1].axhline(y.mean(), color=PALETTE["accent"], linestyle="--", lw=1.2,
+                       label=f"Prevalence ({y.mean():.3f})")
+    _style(axes[0, 1], "Precision-recall curve", "Recall (sensitivity)",
+           "Precision (PPV)")
+    axes[0, 1].legend(fontsize=8, frameon=False)
+
+    for probs, lab, col in [(p_raw, "Uncalibrated", PALETTE["warn"]),
+                            (p_cal, "Isotonic-calibrated", PALETTE["primary"])]:
+        xs, ys, ns = calibration_curve_points(y, probs, n_bins=8)
+        if len(xs):
+            axes[1, 0].plot(xs, ys, "o-", color=col, lw=1.8, ms=5, label=lab)
+    axes[1, 0].plot([0, 1], [0, 1], "--", color=PALETTE["muted"], lw=1,
+                    label="Perfect calibration")
+    _style(axes[1, 0], "Calibration", "Predicted risk", "Observed frequency")
+    axes[1, 0].legend(fontsize=8, frameon=False)
+
+    thr, nb, all_nb = decision_curve(y, p_cal)
+    axes[1, 1].plot(thr, nb, color=PALETTE["primary"], lw=2, label="Model")
+    axes[1, 1].plot(thr, all_nb, "--", color=PALETTE["warn"], lw=1.4,
+                    label="Test everyone")
+    axes[1, 1].axhline(0, color=PALETTE["muted"], lw=1, linestyle=":",
+                       label="Test no one")
+    axes[1, 1].set_ylim(min(-0.02, nb.min() - 0.01), max(nb.max(), 0.05) * 1.35)
+    _style(axes[1, 1], "Decision curve (clinical net benefit)",
+           "Threshold probability", "Net benefit")
+    axes[1, 1].legend(fontsize=8, frameon=False)
+
+    fig.tight_layout()
+    return _save(fig, "03_performance_panel")
