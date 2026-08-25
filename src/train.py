@@ -224,3 +224,70 @@ def stage_blocked(data=None, include_neural: bool = True) -> dict:
            "models": results}
     _save("blocked_cv", out)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Stage: final model, calibration, held-out evaluation
+# ---------------------------------------------------------------------------
+def stage_final(data=None, best_name: str | None = None) -> dict:
+    data = data or prepare()
+    X, y = data["X"], data["y"]
+    tr, te = data["train_idx"], data["test_idx"]
+
+    if best_name is None:
+        cv_path = REPORTS / "cv.json"
+        best_name = (json.loads(cv_path.read_text())["ranking"][0]
+                     if cv_path.exists() else "LightGBM")
+    _log(f"Stage FINAL -- selected model: {best_name}")
+
+    zoo = all_models(data["blocks"])
+    base = build_pipeline(zoo[best_name])
+
+    # Isotonic calibration on internal CV folds of the training set only.
+    cal = CalibratedClassifierCV(base, method="isotonic",
+                                 cv=StratifiedKFold(5, shuffle=True,
+                                                    random_state=RANDOM_STATE))
+    cal.fit(X[tr], y[tr])
+
+    uncal = build_pipeline(zoo[best_name]).fit(X[tr], y[tr])
+
+    p_test_cal = cal.predict_proba(X[te])[:, 1]
+    p_test_raw = uncal.predict_proba(X[te])[:, 1]
+
+    # Threshold chosen on training-set OOF predictions, never on the test set.
+    oof = np.zeros(len(tr))
+    for a, b in StratifiedKFold(5, shuffle=True, random_state=RANDOM_STATE).split(X[tr], y[tr]):
+        m = build_pipeline(zoo[best_name]).fit(X[tr][a], y[tr][a])
+        oof[b] = m.predict_proba(X[tr][b])[:, 1]
+    thr_youden = youden_threshold(y[tr], oof)
+    thr_sens90 = threshold_at_sensitivity(y[tr], oof, 0.90)
+
+    out = {
+        "selected_model": best_name,
+        "n_train": int(len(tr)), "n_test": int(len(te)),
+        "test_events": int(y[te].sum()),
+        "thresholds": {"youden_on_train_oof": round(thr_youden, 4),
+                       "sensitivity90_on_train_oof": round(thr_sens90, 4)},
+        "test_calibrated_youden": compute_metrics(y[te], p_test_cal, thr_youden),
+        "test_calibrated_sens90": compute_metrics(y[te], p_test_cal, thr_sens90),
+        "test_uncalibrated_youden": compute_metrics(y[te], p_test_raw, thr_youden),
+        "auc_ci": bootstrap_ci(y[te], p_test_cal, "auc_roc"),
+        "auc_pr_ci": bootstrap_ci(y[te], p_test_cal, "auc_pr"),
+        "sensitivity_ci": bootstrap_ci(y[te], p_test_cal, "sensitivity"),
+        "calibration_effect": {
+            "brier_uncalibrated": compute_metrics(y[te], p_test_raw)["brier"],
+            "brier_calibrated": compute_metrics(y[te], p_test_cal)["brier"],
+            "ece_uncalibrated": compute_metrics(y[te], p_test_raw)["ece"],
+            "ece_calibrated": compute_metrics(y[te], p_test_cal)["ece"],
+        },
+    }
+
+    MODELS.mkdir(parents=True, exist_ok=True)
+    joblib.dump({"model": cal, "featurizer": data["featurizer"],
+                 "thresholds": out["thresholds"],
+                 "feature_names": data["feature_names"]},
+                MODELS / "final_model.joblib")
+    np.savez(REPORTS / "test_predictions.npz",
+             y=y[te], p_cal=p_test_cal, p_raw=p_test_raw)
+    _save("final", out)
+    return out
