@@ -95,3 +95,35 @@ def block_attribution(vals: np.ndarray, feature_names: list[str],
     df = pd.DataFrame(rows)
     df["share"] = df["mean_abs_shap"] / df["mean_abs_shap"].sum()
     return df.sort_values("mean_abs_shap", ascending=False).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Intrinsic block attention
+# ---------------------------------------------------------------------------
+def attention_profile(torch_clf, X: np.ndarray) -> pd.DataFrame:
+    """Mean attention weight the network places on each biological axis."""
+    import torch
+
+    model = torch_clf.model_
+    model.eval()
+    with torch.no_grad():
+        model(torch.from_numpy(np.asarray(X, dtype=np.float32)))
+    a = model.last_attention_.numpy()
+    return pd.DataFrame({
+        "block": model.block_names,
+        "mean_attention": a.mean(axis=0),
+        "std_attention": a.std(axis=0),
+    }).sort_values("mean_attention", ascending=False).reset_index(drop=True)
+
+
+def rank_agreement(a: pd.DataFrame, b: pd.DataFrame, key: str = "block") -> dict:
+    """Spearman correlation between two block rankings."""
+    from scipy.stats import spearmanr
+
+    merged = a[[key]].assign(rank_a=range(len(a))).merge(
+        b[[key]].assign(rank_b=range(len(b))), on=key, how="inner")
+    if len(merged) < 3:
+        return {"n": len(merged), "spearman": None, "p_value": None}
+    rho, p = spearmanr(merged["rank_a"], merged["rank_b"])
+    return {"n": int(len(merged)), "spearman": round(float(rho), 4),
+            "p_value": round(float(p), 5)}
