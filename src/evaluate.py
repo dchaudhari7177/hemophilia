@@ -151,3 +151,67 @@ def bootstrap_ci(y_true, y_prob, metric: str = "auc_roc", n_boot: int = 2000,
         "hi": round(float(np.percentile(vals, 100 * (1 - alpha / 2))), 4),
         "n_boot": int(len(vals)),
     }
+
+
+# ---------------------------------------------------------------------------
+# DeLong's test for two correlated ROC curves
+# ---------------------------------------------------------------------------
+def _midrank(x: np.ndarray) -> np.ndarray:
+    order = np.argsort(x)
+    sorted_x = x[order]
+    n = len(x)
+    ranks = np.empty(n, dtype=float)
+    i = 0
+    while i < n:
+        j = i
+        while j < n - 1 and sorted_x[j + 1] == sorted_x[i]:
+            j += 1
+        ranks[i:j + 1] = 0.5 * (i + j) + 1
+        i = j + 1
+    out = np.empty(n, dtype=float)
+    out[order] = ranks
+    return out
+
+
+def _structural_components(scores: np.ndarray, m: int):
+    """V10 / V01 placement values for each classifier (DeLong 1988)."""
+    pos, neg = scores[:, :m], scores[:, m:]
+    k, n = scores.shape[0], scores.shape[1] - m
+    tx = np.array([_midrank(pos[r]) for r in range(k)])
+    ty = np.array([_midrank(neg[r]) for r in range(k)])
+    tz = np.array([_midrank(scores[r]) for r in range(k)])
+    aucs = (tz[:, :m].sum(axis=1) / (m * n) - (m + 1) / (2.0 * n))
+    v01 = (tz[:, :m] - tx) / n
+    v10 = 1.0 - (tz[:, m:] - ty) / m
+    return aucs, v01, v10
+
+
+def delong_test(y_true, prob_a, prob_b) -> dict:
+    """Two-sided DeLong test that AUC(A) == AUC(B) on the same patients."""
+    y_true = np.asarray(y_true).astype(int)
+    order = np.argsort(-y_true)             # positives first
+    y = y_true[order]
+    m = int(y.sum())
+    scores = np.vstack([np.asarray(prob_a, dtype=float)[order],
+                        np.asarray(prob_b, dtype=float)[order]])
+    n = len(y) - m
+    if m == 0 or n == 0:
+        return {"auc_a": None, "auc_b": None, "p_value": None}
+
+    aucs, v01, v10 = _structural_components(scores, m)
+    s01 = np.cov(v01)
+    s10 = np.cov(v10)
+    cov = s01 / m + s10 / n
+    diff = aucs[0] - aucs[1]
+    var = cov[0, 0] + cov[1, 1] - 2 * cov[0, 1]
+    if var <= 0:
+        return {"auc_a": round(float(aucs[0]), 4), "auc_b": round(float(aucs[1]), 4),
+                "delta": round(float(diff), 4), "p_value": 1.0}
+    z = diff / np.sqrt(var)
+    return {
+        "auc_a": round(float(aucs[0]), 4),
+        "auc_b": round(float(aucs[1]), 4),
+        "delta": round(float(diff), 4),
+        "z": round(float(z), 4),
+        "p_value": round(float(2 * (1 - stats.norm.cdf(abs(z)))), 6),
+    }
