@@ -200,6 +200,8 @@ class VariantFeaturizer:
     def __init__(self, gene: str = "F8"):
         self.gene = gene
         self.exon_map_: pd.DataFrame | None = None
+        self.hotspot_ref_: np.ndarray | None = None
+        self.domain_load_: dict[str, float] | None = None
         self.columns_: list[str] = []
         self.blocks_: dict[str, list[str]] = {}
 
@@ -236,6 +238,14 @@ class VariantFeaturizer:
         c = self._resolve(df)
         if c["cdna"] and c["exon"]:
             self.exon_map_ = build_exon_map(df, c["cdna"], c["exon"])
+        if c["cdna"]:
+            pos = np.array([parse_cdna(v).cdna_pos for v in df[c["cdna"]]],
+                           dtype=float)
+            self.hotspot_ref_ = np.sort(pos[~np.isnan(pos)])
+        if c["domain"]:
+            counts = pd.Series([_norm(v).upper().replace(" ", "_")
+                                for v in df[c["domain"]]]).value_counts()
+            self.domain_load_ = {k: float(np.log1p(v)) for k, v in counts.items()}
         feats, blocks = self._build(df)
         self.columns_ = list(feats.columns)
         self.blocks_ = blocks
@@ -261,6 +271,31 @@ class VariantFeaturizer:
             return (np.nan, np.nan, np.nan)
         r = row.iloc[0]
         return (float(r["start"]), float(r["end"]), float(r["length"]))
+
+    def _density(self, positions: np.ndarray, width: float) -> np.ndarray:
+        """How many catalogued variants sit within ``width`` nt of this one.
+
+        Mutational hotspots -- CpG dinucleotides, the exon-14 poly-A runs, the
+        arginine CGA codons -- recur independently in unrelated families. A
+        variant in a dense neighbourhood is more likely to be a recurrent
+        hotspot event than a private family variant. The reference positions
+        come from the fitted cohort's coordinates only, never from outcomes.
+        """
+        ref = self.hotspot_ref_
+        if ref is None or len(ref) == 0:
+            return np.zeros(len(positions))
+        out = np.zeros(len(positions))
+        for i, p in enumerate(positions):
+            if math.isnan(p):
+                continue
+            lo = np.searchsorted(ref, p - width, side="left")
+            hi = np.searchsorted(ref, p + width, side="right")
+            out[i] = max(hi - lo - 1, 0)      # exclude the variant itself
+        return np.log1p(out)
+
+    def _domain_load(self, domains: list) -> np.ndarray:
+        load = self.domain_load_ or {}
+        return np.array([float(load.get(str(d).upper(), 0.0)) for d in domains])
 
     def _build(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict[str, list[str]]]:
         c = self._resolve(df)
@@ -523,6 +558,32 @@ class VariantFeaturizer:
             is_null * np.array([float(s == "severe") for s in sev]))
         add("clinical", "null_and_light_chain",
             is_null * np.array([float(chain[i] == "light") for i in range(n)]))
+
+        # CHAMP records the measured FVIII activity stratum as four separate
+        # marked columns. They encode the same phenotype as the severity text
+        # but with different missingness, and "no level given" is itself
+        # informative about how completely the case was worked up.
+        for key, col in [("fviii_severe", "Severe (<1 U/dL)"),
+                         ("fviii_moderate", "Moderate (1-5 U/dL)"),
+                         ("fviii_mild", "Mild (>5 U/dL)"),
+                         ("fviii_not_given", "No FVIII level given")]:
+            src = df[col] if col in df.columns else pd.Series([np.nan] * n,
+                                                             index=df.index)
+            add("clinical", key,
+                np.array([float(_norm(v) not in {"unknown", ""}) for v in src]))
+        n_strata = sum(np.asarray(out[k]) for k in
+                       ["fviii_severe", "fviii_moderate", "fviii_mild"])
+        # A variant reported at more than one severity stratum has variable
+        # expressivity, which is itself a phenotype.
+        add("clinical", "severity_strata_count", n_strata)
+        add("clinical", "variable_expressivity", (n_strata > 1).astype(float))
+
+        # ---- mutational-hotspot context (position density, labels never used)
+        for width, label in [(50, "50nt"), (500, "500nt")]:
+            add("position", f"hotspot_density_{label}",
+                self._density(cpos, width))
+        add("position", "domain_variant_load",
+            self._domain_load(dom))
 
         feats = pd.DataFrame(out, index=df.index).astype(float)
         feats = feats.replace([np.inf, -np.inf], np.nan)
