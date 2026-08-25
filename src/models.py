@@ -365,11 +365,18 @@ def neural_models(block_indices: dict[str, list[int]],
         "ResidualMLP": TorchClassifier(
             builder=lambda n: ResidualMLP(n), epochs=200, lr=1e-3,
             random_state=random_state),
+        # The convolutional and attention arms cost 20-40x a plain MLP per
+        # fold on this feature count, and neither is competitive here (see
+        # reports/cv.json). They are trained on a reduced budget -- larger
+        # batches, fewer epochs -- so the comparison completes; their reported
+        # scores should be read as "not competitive even so", not as a tuned
+        # ceiling for those architectures.
         "CNN1D": TorchClassifier(
-            builder=lambda n: MultiScaleCNN1D(n), epochs=150, lr=1e-3,
-            random_state=random_state),
+            builder=lambda n: MultiScaleCNN1D(n, channels=16), epochs=80,
+            batch_size=128, lr=2e-3, patience=15, random_state=random_state),
         "TabTransformer": TorchClassifier(
-            builder=lambda n: TabTransformer(n), epochs=150, lr=5e-4,
+            builder=lambda n: TabTransformer(n, d_model=16, n_layers=1),
+            epochs=80, batch_size=128, lr=1e-3, patience=15,
             random_state=random_state),
         "BioBlockAttention": TorchClassifier(
             builder=lambda n: BioBlockAttentionNet(block_indices),
