@@ -31,6 +31,8 @@ model whose performance is real, states it plainly, and validates it on a cohort
 it has never seen.
 
 **Full findings, tables and comparisons: [`RESULTS.md`](RESULTS.md).**
+**Design rationale and the clinical case: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).**
+**Reviewer walkthrough: [`Hemophilia_Capstone_Final.ipynb`](Hemophilia_Capstone_Final.ipynb).**
 
 ---
 
