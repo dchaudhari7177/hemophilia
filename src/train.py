@@ -7,6 +7,7 @@ Stages (run with ``python -m src.train --stage <name>``):
   cv        repeated stratified cross-validation over the whole model zoo
   blocked   position-blocked cross-validation (generalising to unseen regions)
   final     fit the selected model, calibrate it, evaluate on the held-out test set
+  subgroups per-stratum performance (severe, null, missense, ...)
   ssl       missing-data probe and semi-supervised use of the unlabelled pool
   external  transfer the F8 model onto the CHBMP F9 cohort
   all       every stage, in order
@@ -299,6 +300,44 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Stage: performance inside each clinical stratum
+# ---------------------------------------------------------------------------
+def stage_subgroups(data=None) -> dict:
+    """Does the model work for the patients it would actually be used on?
+
+    Prophylaxis decisions are made almost entirely in severe hemophilia A. An
+    overall AUC that looks respectable while the severe stratum sits at chance
+    would be useless in clinic, and the overall number would never show it.
+    """
+    from .subgroups import subgroup_report, to_records
+
+    data = data or prepare()
+    npz = REPORTS / "test_predictions.npz"
+    if not npz.exists():
+        stage_final(data)
+    d = np.load(npz)
+
+    te = data["test_idx"]
+    rows = data["labelled"].iloc[te].reset_index(drop=True)
+    final = json.loads((REPORTS / "final.json").read_text())
+    thr = final["thresholds"]["youden_on_train_oof"]
+
+    _log("Stage SUBGROUPS -- per-stratum performance on the held-out test set")
+    table = subgroup_report(rows, d["y"], d["p_cal"], thr)
+    for _, r in table.iterrows():
+        _log(f"  {r['subgroup']:22s} n={r['n']:4d} events={r['events']:3d} "
+             f"AUC={r['auc_roc'] if r['auc_roc'] else '--'}")
+
+    out = {"threshold": thr,
+           "note": ("Strata with fewer than 10 events in either class are "
+                    "listed with their counts but no AUC, because an estimate "
+                    "from that few events would not be stable."),
+           "subgroups": to_records(table)}
+    _save("subgroups", out)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Stage: missing-data probe and semi-supervised learning
 # ---------------------------------------------------------------------------
 def stage_ssl(data=None) -> dict:
@@ -393,7 +432,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--stage", default="all",
                     choices=["audit", "cv", "blocked", "final", "ssl",
-                             "external", "all"])
+                             "external", "subgroups", "all"])
     ap.add_argument("--no-neural", action="store_true",
                     help="skip the torch models (much faster)")
     args = ap.parse_args()
@@ -416,6 +455,8 @@ def main() -> None:
         stage_blocked(data, include_neural)
     if args.stage in ("final", "all"):
         stage_final(data)
+    if args.stage in ("subgroups", "all"):
+        stage_subgroups(data)
     if args.stage in ("ssl", "all"):
         stage_ssl(data)
     if args.stage in ("external", "all"):
