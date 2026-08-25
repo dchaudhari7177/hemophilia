@@ -13,3 +13,35 @@ patient the model has never seen.
 """
 
 from __future__ import annotations
+
+# --------------------------------------------------------------------------
+# 1. FVIII domain architecture
+# --------------------------------------------------------------------------
+# FVIII is translated as a 2351-residue precursor. The first 19 residues are the
+# signal peptide; the circulating mature protein is 2332 residues.
+#   mature_position = precursor_position - SIGNAL_PEPTIDE_LEN
+# CHAMP stores both numberings ("HGVS Protein" = precursor, "Mature Protein").
+
+SIGNAL_PEPTIDE_LEN = 19
+PRECURSOR_LEN = 2351
+MATURE_LEN = 2332
+
+# Domain boundaries in MATURE numbering (inclusive), UniProt P00451.
+FVIII_DOMAINS = [
+    ("A1", 1, 336),
+    ("a1", 337, 372),   # acidic region a1
+    ("A2", 373, 719),
+    ("a2", 720, 740),   # acidic region a2
+    ("B", 741, 1648),   # B domain -- dispensable for coagulant activity
+    ("a3", 1649, 1689),  # acidic region a3
+    ("A3", 1690, 2019),
+    ("C1", 2020, 2172),
+    ("C2", 2173, 2332),
+]
+
+# The heavy chain (A1-a1-A2-a2-B) and light chain (a3-A3-C1-C2) are separated by
+# proteolytic processing at residue 1648/1649.
+HEAVY_LIGHT_BOUNDARY = 1648
+
+# The B domain is spliced out on activation and is not required for function.
+B_DOMAIN_START, B_DOMAIN_END = 741, 1648
