@@ -180,3 +180,47 @@ def stage_cv(data=None, include_neural: bool = True) -> dict:
            "models": results}
     _save("cv", out)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Stage: position-blocked cross-validation
+# ---------------------------------------------------------------------------
+def stage_blocked(data=None, include_neural: bool = True) -> dict:
+    """Hold out contiguous stretches of the gene.
+
+    Standard k-fold can place a variant at residue 490 in training and residue
+    491 in test. Those are neighbouring residues in the same epitope, so the
+    model is interpolating rather than predicting. Blocking by genomic region
+    measures whether the model transfers to a stretch of F8 it has never seen,
+    which is what happens when a novel mutation is discovered.
+    """
+    from sklearn.metrics import roc_auc_score
+    from sklearn.model_selection import GroupKFold
+
+    data = data or prepare()
+    X, y = data["X"], data["y"]
+    groups = protein_region_blocks(data["labelled"], n_blocks=10)
+    zoo = all_models(data["blocks"], include_neural)
+
+    _log(f"Stage BLOCKED -- GroupKFold over 10 genomic regions")
+    gkf = GroupKFold(n_splits=5)
+    results = {}
+    for name, model in zoo.items():
+        aucs = []
+        for tr, te in gkf.split(X, y, groups):
+            if len(np.unique(y[te])) < 2:
+                continue
+            pipe = build_pipeline(model)
+            pipe.fit(X[tr], y[tr])
+            aucs.append(float(roc_auc_score(y[te], pipe.predict_proba(X[te])[:, 1])))
+        results[name] = {
+            "blocked_auc_mean": round(float(np.mean(aucs)), 4),
+            "blocked_auc_std": round(float(np.std(aucs)), 4),
+            "folds": [round(a, 4) for a in aucs],
+        }
+        _log(f"  {name:20s} blocked AUC {results[name]['blocked_auc_mean']:.4f}")
+
+    out = {"protocol": "GroupKFold(5) over 10 contiguous cDNA regions",
+           "models": results}
+    _save("blocked_cv", out)
+    return out
