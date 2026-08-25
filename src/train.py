@@ -266,13 +266,26 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
     p_test_cal = cal.predict_proba(X[te])[:, 1]
     p_test_raw = uncal.predict_proba(X[te])[:, 1]
 
-    # Threshold chosen on training-set OOF predictions, never on the test set.
-    oof = np.zeros(len(tr))
-    for a, b in StratifiedKFold(5, shuffle=True, random_state=RANDOM_STATE).split(X[tr], y[tr]):
-        m = build_pipeline(zoo[best_name]).fit(X[tr][a], y[tr][a])
-        oof[b] = m.predict_proba(X[tr][b])[:, 1]
-    thr_youden = youden_threshold(y[tr], oof)
-    thr_sens90 = threshold_at_sensitivity(y[tr], oof, 0.90)
+    # Thresholds are chosen on training-set out-of-fold predictions, never on
+    # the test set -- and specifically on *calibrated* out-of-fold predictions,
+    # because that is the scale they will be applied on. Isotonic regression is
+    # monotone but not affine: it preserves the ranking while moving the
+    # probability values substantially, so a cut-off picked on the raw scores
+    # and applied to calibrated ones lands somewhere quite different. Choosing
+    # on the raw scale here cost 40 points of sensitivity before this was fixed.
+    from sklearn.model_selection import cross_val_predict
+
+    inner = StratifiedKFold(5, shuffle=True, random_state=RANDOM_STATE)
+    oof_cal = cross_val_predict(
+        CalibratedClassifierCV(build_pipeline(zoo[best_name]),
+                               method="isotonic", cv=inner),
+        X[tr], y[tr], cv=inner, method="predict_proba")[:, 1]
+    oof_raw = cross_val_predict(build_pipeline(zoo[best_name]), X[tr], y[tr],
+                                cv=inner, method="predict_proba")[:, 1]
+
+    thr_youden = youden_threshold(y[tr], oof_cal)
+    thr_sens90 = threshold_at_sensitivity(y[tr], oof_cal, 0.90)
+    thr_youden_raw = youden_threshold(y[tr], oof_raw)
 
     out = {
         "selected_model": best_name,
@@ -282,7 +295,16 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
                        "sensitivity90_on_train_oof": round(thr_sens90, 4)},
         "test_calibrated_youden": compute_metrics(y[te], p_test_cal, thr_youden),
         "test_calibrated_sens90": compute_metrics(y[te], p_test_cal, thr_sens90),
-        "test_uncalibrated_youden": compute_metrics(y[te], p_test_raw, thr_youden),
+        "test_uncalibrated_youden": compute_metrics(y[te], p_test_raw,
+                                                    thr_youden_raw),
+        "threshold_scale_check": {
+            "youden_on_calibrated_oof": round(thr_youden, 4),
+            "youden_on_raw_oof": round(thr_youden_raw, 4),
+            "note": ("Both thresholds target the same operating point but live "
+                     "on different probability scales. Applying the raw-scale "
+                     "cut-off to calibrated probabilities is a scale mismatch, "
+                     "not a conservative choice."),
+        },
         "auc_ci": bootstrap_ci(y[te], p_test_cal, "auc_roc"),
         "auc_pr_ci": bootstrap_ci(y[te], p_test_cal, "auc_pr"),
         "sensitivity_ci": bootstrap_ci(y[te], p_test_cal, "sensitivity"),
