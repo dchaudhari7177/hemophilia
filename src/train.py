@@ -102,3 +102,16 @@ def all_models(blocks, include_neural: bool = True) -> dict:
     if include_neural:
         zoo.update(neural_models(blocks))
     return zoo
+
+
+# ---------------------------------------------------------------------------
+# Stage: leakage audit
+# ---------------------------------------------------------------------------
+def stage_audit() -> dict:
+    from .leakage_audit import run_audit
+    _log("Stage AUDIT -- reproducing the reference pipeline")
+    champ = load_champ()
+    res = run_audit(champ)
+    res["_label_summary"] = label_summary(champ)
+    _save("audit", res)
+    return res
