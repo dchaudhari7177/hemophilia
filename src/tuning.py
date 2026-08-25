@@ -119,3 +119,48 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
              "clf__l1_ratio": uniform(0, 1)},
         ),
     }
+
+
+# ---------------------------------------------------------------------------
+# Nested search
+# ---------------------------------------------------------------------------
+def nested_search(X, y, name: str, estimator, space, n_iter: int = 40,
+                  inner_splits: int = 4, outer_splits: int = 5,
+                  random_state: int = RANDOM_STATE) -> dict:
+    """Tune on inner folds, score on untouched outer folds."""
+    from sklearn.metrics import roc_auc_score
+
+    outer = StratifiedKFold(outer_splits, shuffle=True, random_state=random_state)
+    inner = StratifiedKFold(inner_splits, shuffle=True, random_state=random_state)
+
+    outer_scores, chosen = [], []
+    for tr, te in outer.split(X, y):
+        search = RandomizedSearchCV(
+            build_pipeline(estimator), space, n_iter=n_iter, scoring="roc_auc",
+            cv=inner, n_jobs=-1, random_state=random_state, refit=True,
+            error_score=0.0)
+        search.fit(X[tr], y[tr])
+        p = search.best_estimator_.predict_proba(X[te])[:, 1]
+        outer_scores.append(float(roc_auc_score(y[te], p)))
+        chosen.append({k.replace("clf__", ""): (round(v, 5) if isinstance(v, float) else v)
+                       for k, v in search.best_params_.items()})
+
+    # one final search on everything, to produce the deployable estimator
+    final = RandomizedSearchCV(
+        build_pipeline(estimator), space, n_iter=n_iter, scoring="roc_auc",
+        cv=inner, n_jobs=-1, random_state=random_state, refit=True,
+        error_score=0.0)
+    final.fit(X, y)
+
+    return {
+        "model": name,
+        "nested_auc_mean": round(float(np.mean(outer_scores)), 4),
+        "nested_auc_std": round(float(np.std(outer_scores)), 4),
+        "nested_auc_folds": [round(s, 4) for s in outer_scores],
+        "inner_best_auc": round(float(final.best_score_), 4),
+        "optimism_from_tuning": round(float(final.best_score_ - np.mean(outer_scores)), 4),
+        "best_params": {k.replace("clf__", ""): (round(v, 5) if isinstance(v, float) else v)
+                        for k, v in final.best_params_.items()},
+        "params_per_outer_fold": chosen,
+        "_estimator": final.best_estimator_,
+    }
