@@ -315,3 +315,68 @@ class TorchClassifier(BaseEstimator, ClassifierMixin):
 
     def predict(self, X):
         return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
+
+
+# ---------------------------------------------------------------------------
+# Registry
+# ---------------------------------------------------------------------------
+def classical_models(random_state: int = RANDOM_STATE) -> dict:
+    """Strong non-neural baselines, all imbalance-aware."""
+    import lightgbm as lgb
+    import xgboost as xgb
+
+    return {
+        "LogisticRegression": LogisticRegression(
+            penalty="l2", C=0.1, max_iter=5000, class_weight="balanced",
+            random_state=random_state),
+        "ElasticNetLR": LogisticRegression(
+            penalty="elasticnet", solver="saga", l1_ratio=0.5, C=0.1,
+            max_iter=5000, class_weight="balanced", random_state=random_state),
+        "RandomForest": RandomForestClassifier(
+            n_estimators=600, min_samples_leaf=4, max_features="sqrt",
+            class_weight="balanced_subsample", n_jobs=-1,
+            random_state=random_state),
+        "ExtraTrees": ExtraTreesClassifier(
+            n_estimators=600, min_samples_leaf=4, max_features="sqrt",
+            class_weight="balanced", n_jobs=-1, random_state=random_state),
+        "GradientBoosting": GradientBoostingClassifier(
+            n_estimators=250, learning_rate=0.05, max_depth=3,
+            subsample=0.8, random_state=random_state),
+        "LightGBM": lgb.LGBMClassifier(
+            n_estimators=400, learning_rate=0.03, num_leaves=15,
+            min_child_samples=25, subsample=0.8, subsample_freq=1,
+            colsample_bytree=0.7, reg_lambda=1.0, class_weight="balanced",
+            random_state=random_state, n_jobs=-1, verbose=-1),
+        "XGBoost": xgb.XGBClassifier(
+            n_estimators=400, learning_rate=0.03, max_depth=4,
+            min_child_weight=5, subsample=0.8, colsample_bytree=0.7,
+            reg_lambda=2.0, eval_metric="logloss",
+            random_state=random_state, n_jobs=-1),
+    }
+
+
+def neural_models(block_indices: dict[str, list[int]],
+                  random_state: int = RANDOM_STATE) -> dict:
+    """The four reference architectures plus this project's attention network."""
+    return {
+        "DeepMLP": TorchClassifier(
+            builder=lambda n: DeepMLP(n), epochs=200, lr=1e-3,
+            random_state=random_state),
+        "ResidualMLP": TorchClassifier(
+            builder=lambda n: ResidualMLP(n), epochs=200, lr=1e-3,
+            random_state=random_state),
+        "CNN1D": TorchClassifier(
+            builder=lambda n: MultiScaleCNN1D(n), epochs=150, lr=1e-3,
+            random_state=random_state),
+        "TabTransformer": TorchClassifier(
+            builder=lambda n: TabTransformer(n), epochs=150, lr=5e-4,
+            random_state=random_state),
+        "BioBlockAttention": TorchClassifier(
+            builder=lambda n: BioBlockAttentionNet(block_indices),
+            epochs=250, lr=1e-3, batch_size=64, random_state=random_state),
+    }
+
+
+def build_pipeline(estimator) -> Pipeline:
+    """Attach fold-local imputation and scaling to any estimator."""
+    return Pipeline([("prep", make_preprocessor()), ("clf", clone(estimator))])
