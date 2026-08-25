@@ -1,0 +1,92 @@
+{
+  "best_model": "ExtraTrees",
+  "best_oof_auc": 0.7412,
+  "vs_best": {
+    "ExtraTrees": {
+      "oof_auc": 0.7412,
+      "delta_vs_best": 0.0,
+      "p_value": 1.0,
+      "verdict": "--"
+    },
+    "RandomForest": {
+      "oof_auc": 0.7372,
+      "delta_vs_best": 0.004,
+      "p_value": 0.301395,
+      "verdict": "indistinguishable"
+    },
+    "StackedEnsemble": {
+      "oof_auc": 0.737,
+      "delta_vs_best": 0.0042,
+      "p_value": 0.139123,
+      "verdict": "indistinguishable"
+    },
+    "WeightedAverageEnsemble": {
+      "oof_auc": 0.7357,
+      "delta_vs_best": 0.0054,
+      "p_value": 0.188836,
+      "verdict": "indistinguishable"
+    },
+    "DeepMLP": {
+      "oof_auc": 0.7338,
+      "delta_vs_best": 0.0074,
+      "p_value": 0.319401,
+      "verdict": "indistinguishable"
+    },
+    "BioBlockAttention": {
+      "oof_auc": 0.7287,
+      "delta_vs_best": 0.0125,
+      "p_value": 0.097951,
+      "verdict": "indistinguishable"
+    },
+    "ElasticNetLR": {
+      "oof_auc": 0.7249,
+      "delta_vs_best": 0.0162,
+      "p_value": 0.051516,
+      "verdict": "indistinguishable"
+    },
+    "TabTransformer": {
+      "oof_auc": 0.7249,
+      "delta_vs_best": 0.0162,
+      "p_value": 0.025661,
+      "verdict": "significantly worse"
+    },
+    "GradientBoosting": {
+      "oof_auc": 0.7211,
+      "delta_vs_best": 0.0201,
+      "p_value": 0.007716,
+      "verdict": "significantly worse"
+    },
+    "CNN1D": {
+      "oof_auc": 0.7198,
+      "delta_vs_best": 0.0214,
+      "p_value": 0.014064,
+      "verdict": "significantly worse"
+    },
+    "XGBoost": {
+      "oof_auc": 0.7183,
+      "delta_vs_best": 0.0229,
+      "p_value": 0.002244,
+      "verdict": "significantly worse"
+    },
+    "LogisticRegression": {
+      "oof_auc": 0.7149,
+      "delta_vs_best": 0.0262,
+      "p_value": 0.005345,
+      "verdict": "significantly worse"
+    },
+    "LightGBM": {
+      "oof_auc": 0.7138,
+      "delta_vs_best": 0.0274,
+      "p_value": 0.000421,
+      "verdict": "significantly worse"
+    },
+    "ResidualMLP": {
+      "oof_auc": 0.7061,
+      "delta_vs_best": 0.0351,
+      "p_value": 0.000446,
+      "verdict": "significantly worse"
+    }
+  },
+  "n_statistically_indistinguishable_from_best": 6,
+  "note": "6 of 13 competing models cannot be separated from ExtraTrees at p<0.05 on these out-of-fold predictions. Selecting on the third decimal place of AUC would be selecting on noise."
+}
