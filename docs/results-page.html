@@ -1,0 +1,964 @@
+<title>Inhibitor Risk, Re-measured</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,500;0,600;1,6..72,400&family=Source+Sans+3:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+
+<style>
+:root {
+  --ground:   #fbfcfd;
+  --surface:  #ffffff;
+  --sunk:     #f2f5f8;
+  --ink:      #131a21;
+  --muted:    #5a6a78;
+  --faint:    #8695a2;
+  --accent:   #1f4e79;
+  --accent-soft: #e6eef5;
+  --flag:     #a8261c;
+  --flag-soft:#fbeceb;
+  --good:     #1a6b47;
+  --good-soft:#e8f4ee;
+  --rule:     #dce4ea;
+  --rail:     #c3d3e0;
+  --shadow:   0 1px 2px rgba(19,26,33,.05), 0 8px 24px -16px rgba(19,26,33,.18);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:   #0d141a;
+    --surface:  #141d25;
+    --sunk:     #101922;
+    --ink:      #e4ecf2;
+    --muted:    #97a8b6;
+    --faint:    #6e808f;
+    --accent:   #6aa9dd;
+    --accent-soft: #172733;
+    --flag:     #e0705f;
+    --flag-soft:#2a1917;
+    --good:     #4fb389;
+    --good-soft:#122419;
+    --rule:     #25323d;
+    --rail:     #2f4152;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:   #0d141a;
+  --surface:  #141d25;
+  --sunk:     #101922;
+  --ink:      #e4ecf2;
+  --muted:    #97a8b6;
+  --faint:    #6e808f;
+  --accent:   #6aa9dd;
+  --accent-soft: #172733;
+  --flag:     #e0705f;
+  --flag-soft:#2a1917;
+  --good:     #4fb389;
+  --good-soft:#122419;
+  --rule:     #25323d;
+  --rail:     #2f4152;
+  --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+.col  { max-width: 640px; }
+
+h1, h2, h3 {
+  font-family: Newsreader, ui-serif, Georgia, serif;
+  font-weight: 500;
+  text-wrap: balance;
+  margin: 0;
+}
+
+p { margin: 0 0 1.05em; }
+p:last-child { margin-bottom: 0; }
+
+strong { font-weight: 600; }
+em { font-style: italic; }
+
+code, .num, .mono {
+  font-family: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+}
+code {
+  font-size: .88em;
+  background: var(--sunk);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: .08em .34em;
+}
+
+/* ---------- masthead ---------- */
+.masthead {
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface);
+  padding: 54px 0 40px;
+}
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.masthead h1 {
+  font-size: clamp(34px, 5.4vw, 52px);
+  line-height: 1.1;
+  letter-spacing: -.015em;
+  margin-bottom: 18px;
+}
+.standfirst {
+  font-size: 19.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  max-width: 620px;
+}
+.byline {
+  margin-top: 26px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule);
+  font-size: 13.5px;
+  color: var(--faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+.byline b { color: var(--muted); font-weight: 600; }
+
+/* ---------- verdict strip ---------- */
+.verdict {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(168px, 1fr));
+  gap: 1px;
+  background: var(--rule);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 40px 0 8px;
+}
+.verdict > div { background: var(--surface); padding: 18px 20px; }
+.verdict dt {
+  font-size: 11px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+  margin-bottom: 7px;
+}
+.verdict dd {
+  margin: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 25px;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+}
+.verdict small {
+  display: block;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 5px;
+  letter-spacing: 0;
+}
+
+/* ---------- sections ---------- */
+section { padding: 52px 0; border-top: 1px solid var(--rule); }
+section:first-of-type { border-top: none; }
+
+.snum {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: .06em;
+  display: block;
+  margin-bottom: 10px;
+}
+section > .wrap > h2, section > .wrap > .col > h2 {
+  font-size: clamp(25px, 3.4vw, 33px);
+  line-height: 1.2;
+  letter-spacing: -.012em;
+  margin-bottom: 16px;
+}
+h3 {
+  font-size: 20px;
+  margin: 36px 0 12px;
+  letter-spacing: -.006em;
+}
+
+.lede { font-size: 18.5px; color: var(--muted); }
+
+/* ---------- forensic rail ---------- */
+.forensic { position: relative; }
+.forensic::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 52px; bottom: 52px;
+  width: 2px;
+  background: linear-gradient(var(--flag), var(--rail));
+  border-radius: 2px;
+}
+.forensic .wrap { padding-left: 44px; }
+@media (max-width: 720px) {
+  .forensic .wrap { padding-left: 26px; }
+  .forensic::before { left: 10px; }
+}
+
+/* ---------- ledger table ---------- */
+.scroll { overflow-x: auto; margin: 26px 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+  min-width: 560px;
+}
+th {
+  text-align: left;
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 600;
+  padding: 0 14px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+td {
+  padding: 11px 14px 11px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: middle;
+}
+tbody tr:last-child td { border-bottom: none; }
+td.n {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+tr.hi td { background: var(--flag-soft); }
+tr.ok td { background: var(--good-soft); }
+
+.exp {
+  font-family: "JetBrains Mono", monospace;
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--accent);
+  padding-right: 10px;
+}
+
+/* dual bar showing train vs test */
+.bars { display: flex; flex-direction: column; gap: 3px; min-width: 108px; }
+.bar { height: 7px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 4px; }
+.bar.train i { background: var(--faint); }
+.bar.test  i { background: var(--accent); }
+.bar.test.bad i { background: var(--flag); }
+
+.chip {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.chip.no  { background: var(--flag-soft); color: var(--flag); }
+.chip.yes { background: var(--good-soft); color: var(--good); }
+.chip.neutral { background: var(--sunk); color: var(--muted); }
+
+/* ---------- defect cards ---------- */
+.defects { display: grid; gap: 14px; margin: 26px 0; }
+.defect {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--flag);
+  border-radius: 5px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.defect h4 {
+  margin: 0 0 8px;
+  font-family: Newsreader, serif;
+  font-size: 19px;
+  font-weight: 600;
+}
+.defect p { font-size: 15.5px; color: var(--muted); margin-bottom: 0; }
+.defect .hit {
+  display: block;
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 1px dashed var(--rule);
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+/* ---------- callout ---------- */
+.callout {
+  background: var(--accent-soft);
+  border: 1px solid var(--rail);
+  border-radius: 6px;
+  padding: 22px 24px;
+  margin: 28px 0;
+}
+.callout.warn { background: var(--flag-soft); border-color: var(--flag); }
+.callout h4 {
+  margin: 0 0 9px;
+  font-family: "Source Sans 3", sans-serif;
+  font-size: 11.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--accent);
+}
+.callout.warn h4 { color: var(--flag); }
+.callout p { font-size: 15.5px; margin-bottom: .8em; }
+
+/* ---------- compare ---------- */
+.compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+  margin: 26px 0;
+}
+.pane {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 20px 22px;
+  box-shadow: var(--shadow);
+}
+.pane h4 {
+  margin: 0 0 4px;
+  font-size: 11.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--faint);
+  font-weight: 700;
+  font-family: "Source Sans 3", sans-serif;
+}
+.pane .big {
+  font-family: "JetBrains Mono", monospace;
+  font-variant-numeric: tabular-nums;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -.02em;
+  line-height: 1.2;
+}
+.pane .ci { font-family: "JetBrains Mono", monospace; font-size: 12.5px; color: var(--faint); }
+.pane p { font-size: 14.5px; color: var(--muted); margin: 10px 0 0; }
+.pane.sel { border-color: var(--accent); border-width: 2px; }
+
+/* ---------- strata ---------- */
+.strata { display: grid; gap: 7px; margin: 24px 0; }
+.stratum {
+  display: grid;
+  grid-template-columns: 1fr 84px 132px;
+  align-items: center;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 14.5px;
+}
+.stratum:last-child { border-bottom: none; }
+.stratum .lab { font-weight: 500; }
+.stratum .lab span { display: block; font-size: 12px; color: var(--faint); font-family: "JetBrains Mono", monospace; }
+.stratum .val { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; font-weight: 500; }
+.stratum .track { height: 8px; background: var(--sunk); border-radius: 4px; position: relative; overflow: hidden; }
+.stratum .track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: var(--accent); }
+.stratum .track i.weak { background: var(--flag); }
+.stratum .track u {
+  position: absolute; top: -3px; bottom: -3px; width: 1px;
+  background: var(--faint); text-decoration: none;
+}
+
+/* ---------- footer ---------- */
+footer {
+  border-top: 1px solid var(--rule);
+  background: var(--surface);
+  padding: 40px 0 52px;
+  font-size: 14px;
+  color: var(--muted);
+}
+footer a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--rail); }
+footer a:hover { border-bottom-color: var(--accent); }
+footer a:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.disclaim {
+  margin-top: 22px; padding: 14px 16px;
+  background: var(--flag-soft); border-left: 3px solid var(--flag);
+  border-radius: 0 4px 4px 0; font-size: 13.5px; color: var(--ink);
+}
+
+ul { margin: 0 0 1.05em; padding-left: 1.15em; }
+li { margin-bottom: .42em; }
+li::marker { color: var(--faint); }
+
+/* ---------- narrow screens ---------- */
+@media (max-width: 620px) {
+  body { font-size: 16.5px; }
+  .wrap { padding: 0 18px; }
+  .masthead { padding: 38px 0 30px; }
+  .standfirst { font-size: 17.5px; }
+  .byline { flex-direction: column; gap: 4px; }
+  section { padding: 40px 0; }
+  .stratum {
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "lab val" "track track";
+    gap: 4px 12px;
+    padding: 12px 0;
+  }
+  .stratum .lab   { grid-area: lab; }
+  .stratum .val   { grid-area: val; text-align: right; }
+  .stratum .track { grid-area: track; margin-top: 5px; }
+  .verdict dd { font-size: 22px; }
+  .pane .big { font-size: 26px; }
+  .defect, .callout, .pane { padding: 16px 17px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">PES University · B.Tech Capstone · PW_GRS_01</div>
+    <h1>Inhibitor Risk, Re-measured</h1>
+    <p class="standfirst">
+      Two published results claim 97–99% accuracy predicting FVIII inhibitor
+      development from F8 mutations. Neither reproduces. This is what the
+      CHAMP database actually supports — and how far that is from what a
+      clinician needs.
+    </p>
+    <div class="byline">
+      <span><b>Dipak Chaudhari</b> · Tejas Nagmote · Sneha A · Varsha P</span>
+      <span>Guide: Prof. Gayathri R S</span>
+      <span class="mono">CHAMP n=4,040 · CHBMP n=1,399</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <dl class="verdict">
+    <div>
+      <dt>Reference claim</dt>
+      <dd class="num" style="color:var(--flag)">97.4%</dd>
+      <small>Not reproducible</small>
+    </div>
+    <div>
+      <dt>Same pipeline, clean split</dt>
+      <dd class="num">0.639</dd>
+      <small>AUC — below the majority baseline</small>
+    </div>
+    <div>
+      <dt>This model, held out</dt>
+      <dd class="num" style="color:var(--accent)">0.727</dd>
+      <small>AUC (0.668–0.785)</small>
+    </div>
+    <div>
+      <dt>Transfer to a second gene</dt>
+      <dd class="num" style="color:var(--good)">0.750</dd>
+      <small>AUC on F9, zero-shot</small>
+    </div>
+  </dl>
+</div>
+
+<main>
+
+<section class="forensic">
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">01 — THE AUDIT</span>
+      <h2>Where the published numbers come from</h2>
+      <p class="lede">
+        Each experiment runs the reference preprocessing and changes exactly
+        one thing. All use the same Random Forest the reference reports as its
+        best model.
+      </p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th></th><th>Experiment</th>
+            <th>Train / Test AUC</th>
+            <th class="n">Train</th><th class="n">Test</th>
+            <th class="n">Accuracy</th><th>Verdict</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="exp">A</td>
+            <td>Reference pipeline, verbatim</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test bad"><i style="width:63.9%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.6391</td>
+            <td class="n">86.4%</td>
+            <td><span class="chip no">below baseline</span></td>
+          </tr>
+          <tr>
+            <td class="exp">B</td>
+            <td>Identifier columns only</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test bad"><i style="width:58.3%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.5832</td>
+            <td class="n">85.8%</td>
+            <td><span class="chip neutral">no biology used</span></td>
+          </tr>
+          <tr>
+            <td class="exp">C</td>
+            <td>Biology only, identifiers removed</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:92.5%"></i></div>
+              <div class="bar test"><i style="width:63.3%"></i></div>
+            </div></td>
+            <td class="n">0.9254</td><td class="n">0.6326</td>
+            <td class="n">75.6%</td>
+            <td><span class="chip neutral">—</span></td>
+          </tr>
+          <tr>
+            <td class="exp">D</td>
+            <td>Honest labels, unknowns dropped</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test"><i style="width:70.6%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.7062</td>
+            <td class="n">79.4%</td>
+            <td><span class="chip yes">fair baseline</span></td>
+          </tr>
+          <tr class="hi">
+            <td class="exp">E</td>
+            <td><strong>Labels shuffled</strong> — control</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test bad"><i style="width:43.6%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.4355</td>
+            <td class="n">86.8%</td>
+            <td><span class="chip no">memorises noise</span></td>
+          </tr>
+          <tr>
+            <td class="exp">F</td>
+            <td>Novel-variant split</td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test bad"><i style="width:64.7%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.6467</td>
+            <td class="n">88.2%</td>
+            <td><span class="chip neutral">—</span></td>
+          </tr>
+          <tr class="hi">
+            <td class="exp">G</td>
+            <td><strong>Over-sampled before splitting</strong></td>
+            <td><div class="bars">
+              <div class="bar train"><i style="width:100%"></i></div>
+              <div class="bar test"><i style="width:99.4%"></i></div>
+            </div></td>
+            <td class="n">1.0000</td><td class="n">0.9938</td>
+            <td class="n">95.3%</td>
+            <td><span class="chip no">50% test rows are train rows</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        Row <strong>E</strong> settles it. With the outcome labels randomly
+        shuffled — no signal left to find — training AUC still sits at
+        <code>1.0000</code>. A model that fits pure noise perfectly is
+        memorising, not learning. Row <strong>G</strong> then reproduces the
+        published figure almost exactly, by making the one protocol error that
+        produces it.
+      </p>
+    </div>
+
+    <div class="defects">
+      <div class="defect">
+        <h4>Over-sampling applied before the split</h4>
+        <p>
+          Random Over-Sampling duplicates minority rows verbatim, then the
+          split is taken. The same patient lands on both sides, and the
+          classifier is graded on rows it has already memorised.
+        </p>
+        <span class="hit">716 of 1,432 test rows (50.0%) are byte-identical copies of training rows → 95.3% accuracy, AUC 0.9938</span>
+      </div>
+      <div class="defect">
+        <h4>“Not reported” relabelled as “no inhibitor”</h4>
+        <p>
+          1,744 of 4,040 CHAMP variants have no recorded outcome. Mapping them
+          to zero asserts something the data never says, and pads the majority
+          class so accuracy rises without the model improving.
+        </p>
+        <span class="hit">Prevalence 20.1% → 11.4% · accuracy inflated +7.0 pts · ~502 false negatives injected</span>
+      </div>
+      <div class="defect">
+        <h4>Identifier columns fed in as features</h4>
+        <p>
+          <code>HGVS cDNA</code> is a name for the variant, not a property of
+          it. Among the 2,296 labelled rows it has <em>zero</em> duplicates —
+          it is a primary key, and label-encoding it hands the model a lookup
+          table.
+        </p>
+        <span class="hit">4,038 distinct values / 4,050 rows · 0 duplicates among labelled patients</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">02 — THE REBUILD</span>
+      <h2>Mechanism instead of identity</h2>
+      <p>
+        The HGVS string is discarded; what it <em>means</em> is kept. A parser
+        turns each variant into 135 mechanistic descriptors across seven
+        biological blocks — FVIII domain, distance to each known inhibitor
+        epitope, how much protein a stop codon removes, whether the transcript
+        escapes nonsense-mediated decay, Grantham distance and BLOSUM62 for
+        substitutions, splice offsets, FVIII activity stratum.
+      </p>
+
+      <div class="callout">
+        <h4>The cleanest evidence in the project</h4>
+        <p>
+          Genomic position is real biology, but at nucleotide resolution it is
+          near-unique — the identifier problem in numeric clothing. Snapping
+          positions to a 40-bin grid (~58 residues per bin) costs
+          <strong>exactly <span class="mono">0.0000</span> AUC</strong>
+          (<span class="mono">0.7372 → 0.7372</span>).
+        </p>
+        <p style="margin-bottom:0">
+          Zero cost means the fine resolution was carrying identity, not
+          signal. A regression test now fails if any engineered feature
+          becomes near-unique again.
+        </p>
+      </div>
+
+      <h3>What the engineering is actually worth</h3>
+      <p>
+        Measured, not asserted. Variant type and FVIII activity stratum — the
+        two things a clinician already has — reach <span class="mono">0.6985</span>
+        alone. The full engineered set adds <strong class="mono">+0.0387</strong>
+        on top of that.
+      </p>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Feature set</th><th class="n">Features</th><th class="n">AUC-ROC</th><th>Contribution</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Null-mutation flag alone</td><td class="n">1</td><td class="n">0.6481</td><td><div class="bar test"><i style="width:29.6%"></i></div></td></tr>
+          <tr><td>Clinical severity only</td><td class="n">7</td><td class="n">0.6391</td><td><div class="bar test"><i style="width:27.8%"></i></div></td></tr>
+          <tr><td>Variant type only</td><td class="n">9</td><td class="n">0.6778</td><td><div class="bar test"><i style="width:35.6%"></i></div></td></tr>
+          <tr><td>Variant type + severity</td><td class="n">16</td><td class="n">0.6985</td><td><div class="bar test"><i style="width:39.7%"></i></div></td></tr>
+          <tr class="ok"><td><strong>All engineered features</strong></td><td class="n">135</td><td class="n">0.7372</td><td><div class="bar test"><i style="width:47.4%"></i></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">03 — SELECTION</span>
+      <h2>The rule was written before the answer</h2>
+      <p>
+        Two validation protocols disagreed. Repeated cross-validation ranks
+        tree ensembles first. But a random split can place residue 490 in
+        training and residue 491 in test — neighbouring positions in the same
+        epitope, which is interpolation, not prediction. Blocking removes
+        that, and it is the situation a treatment centre is actually in when a
+        newly sequenced patient carries an uncatalogued variant.
+      </p>
+      <p>
+        Trees lose <strong>3–4× more AUC</strong> under blocking than the
+        neural models do. So the tie-break was fixed in advance: among models
+        DeLong cannot separate on repeated CV, ship the highest blocked AUC.
+      </p>
+    </div>
+
+    <div class="compare">
+      <div class="pane">
+        <h4>Higher headline AUC</h4>
+        <div class="big">0.7440</div>
+        <div class="ci">0.6829 – 0.8026</div>
+        <p><strong>ExtraTrees</strong> — won repeated CV, but lost 0.039 AUC under position blocking.</p>
+      </div>
+      <div class="pane sel">
+        <h4>Shipped by the rule</h4>
+        <div class="big" style="color:var(--accent)">0.7268</div>
+        <div class="ci">0.6675 – 0.7847</div>
+        <p><strong>DeepMLP</strong> — statistically tied on repeated CV (<span class="mono">p=0.32</span>), best under blocking.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="callout warn">
+        <h4>Disclosure</h4>
+        <p style="margin-bottom:0">
+          The test set was scored with ExtraTrees before the tie-break had run,
+          and it scored higher. DeepMLP is still what ships. Switching back
+          <em>because</em> the other model scored better on the test set would
+          be selection on the test set — the exact error section 01 documents.
+          Both numbers are stated rather than only the flattering one; the
+          intervals overlap across almost their whole range anyway.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">04 — EXTERNAL VALIDATION</span>
+      <h2>It transfers to a different gene</h2>
+      <p>
+        The F8 model is applied unchanged to 351 hemophilia <strong>B</strong>
+        patients from the CDC CHBMP database — a different gene coding a
+        different protein, with no F9 patient used anywhere in training,
+        feature fitting or threshold selection.
+      </p>
+      <p>
+        Nothing F8-specific can carry over. What can is the immunology: a null
+        variant abolishes the protein, so the patient was never tolerised to
+        the factor they are later infused with. A model that survived this
+        learned that mechanism. A model that memorised F8 would score chance.
+      </p>
+    </div>
+
+    <div class="compare">
+      <div class="pane">
+        <h4>CHAMP · F8 · internal test</h4>
+        <div class="big">0.7268</div>
+        <div class="ci">0.6675 – 0.7847</div>
+        <p>460 patients · 92 events · 20.0% prevalence</p>
+      </div>
+      <div class="pane">
+        <h4>CHBMP · F9 · zero-shot</h4>
+        <div class="big" style="color:var(--good)">0.7504</div>
+        <div class="ci">0.6709 – 0.8237</div>
+        <p>351 patients · 40 events · 11.4% prevalence · AUC-PR 0.409 against a 0.114 baseline</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <p style="font-size:15px;color:var(--muted)">
+        One caveat stated plainly: FVIII coordinates do not map onto the
+        415-residue factor IX, so the domain, epitope and truncation features
+        are near-constant on this cohort. What transfers is the
+        consequence-class signal — null versus missense, truncating versus
+        in-frame — which is precisely the part that should be gene-agnostic.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">05 — THE HARD PART</span>
+      <h2>Where the model stops being useful</h2>
+      <p class="lede">
+        A pooled AUC hides the question a clinician actually asks: does this
+        work for the patients I would use it on?
+      </p>
+    </div>
+
+    <div class="strata">
+      <div class="stratum">
+        <div class="lab">All patients <span>n=460 · 92 events</span></div>
+        <div class="val">0.727</div>
+        <div class="track"><i style="width:45.4%"></i><u style="left:50%"></u></div>
+      </div>
+      <div class="stratum">
+        <div class="lab">Severe phenotype <span>n=286 · 74 events</span></div>
+        <div class="val">0.694</div>
+        <div class="track"><i style="width:38.8%"></i><u style="left:50%"></u></div>
+      </div>
+      <div class="stratum">
+        <div class="lab">Null variants <span>n=243 · 72 events</span></div>
+        <div class="val">0.652</div>
+        <div class="track"><i style="width:30.4%"></i><u style="left:50%"></u></div>
+      </div>
+      <div class="stratum">
+        <div class="lab">Truncating variants only <span>n=177 · 49 events</span></div>
+        <div class="val" style="color:var(--flag)">0.541</div>
+        <div class="track"><i class="weak" style="width:8.2%"></i><u style="left:50%"></u></div>
+      </div>
+      <div class="stratum">
+        <div class="lab">Large structural <span>n=31 · 19 events</span></div>
+        <div class="val" style="color:var(--good)">0.882</div>
+        <div class="track"><i style="width:76.4%"></i><u style="left:50%"></u></div>
+      </div>
+    </div>
+
+    <div class="col">
+      <p style="font-size:13px;color:var(--faint);margin-top:-8px">
+        Bars run from chance (0.50, marked) to 1.00.
+      </p>
+      <div class="callout warn">
+        <h4>The most important caveat in this project</h4>
+        <p>
+          Inside the severe stratum — where essentially every prophylaxis
+          decision is made — AUC falls to <span class="mono">0.694</span>.
+          Inside truncating variants alone it is <span class="mono">0.541</span>,
+          indistinguishable from chance.
+        </p>
+        <p style="margin-bottom:0">
+          Most of the model's apparent discrimination comes from separating
+          null variants from non-null ones — and a clinician already knows that
+          from the variant type, without any model. Within the high-risk group,
+          where a tool would actually change management, this model adds very
+          little.
+        </p>
+      </div>
+      <p>
+        That is a limit of the data, not of the fitting. Whether a particular
+        severe, null-variant patient develops an inhibitor depends on treatment
+        intensity, product type, age at first exposure and HLA haplotype — none
+        of which CHAMP records. No model recovers from a database what was
+        never in it, and reporting only the pooled <span class="mono">0.727</span>
+        would have concealed exactly what a reviewer most needs to see.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">06 — NEGATIVE RESULTS</span>
+      <h2>Four things that did not work</h2>
+      <p>
+        Reported because an experiment that fails is still a measurement, and
+        because a project about honest reporting cannot quietly drop its own
+        disappointments.
+      </p>
+      <ul>
+        <li>
+          <strong>The custom architecture did not win.</strong> A
+          block-attention network built around the seven biological feature
+          groups placed sixth (<span class="mono">0.7287</span>), below a plain
+          ExtraTrees. Its value is intrinsic per-patient attribution, not
+          accuracy.
+        </li>
+        <li>
+          <strong>Neither ensemble beat a single model.</strong> Stacking
+          reached <span class="mono">0.7370</span>, weighted averaging
+          <span class="mono">0.7357</span>, against <span class="mono">0.7412</span>
+          for ExtraTrees alone.
+        </li>
+        <li>
+          <strong>Semi-supervised learning did not help.</strong> Self-training
+          over the 1,744 unlabelled rows moved held-out AUC from
+          <span class="mono">0.7504</span> to <span class="mono">0.7418</span>
+          — DeLong <span class="mono">p = 0.168</span>.
+        </li>
+        <li>
+          <strong>Tuning optimism was not there to find.</strong> Nested search
+          was set up expecting inflated <code>GridSearchCV</code> scores. The
+          largest gap in either direction was <span class="mono">0.0047</span>
+          AUC, and three of five models scored <em>higher</em> on the honest
+          outer loop. That particular criticism does not apply to the reference
+          works, and saying so matters — the defects in section 01 are
+          sufficient without adding one the data does not support.
+        </li>
+      </ul>
+      <p>
+        One more, worth its own line: a missingness probe reaches AUC
+        <span class="mono">0.601</span>, meaning the labelled subset is
+        <em>not</em> a random sample of CHAMP. That is informative missingness,
+        and it limits this model's generalisation exactly as much as anyone
+        else's.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">07 — WHAT IT IS FOR</span>
+      <h2>A rule-out tool, honestly labelled</h2>
+      <p>
+        Two operating points ship, both fixed on training folds before the test
+        set was touched. The balanced point gives 64.1% sensitivity at 64.4%
+        specificity. The high-sensitivity point gives
+        <strong>87.0% sensitivity with 92.2% negative predictive value</strong>
+        — which is a rule-out instrument, and a defensible use for a
+        genomic-only model.
+      </p>
+      <p>
+        Calibration was treated as a first-class requirement rather than an
+        afterthought: isotonic regression moved expected calibration error from
+        <span class="mono">0.272</span> to <span class="mono">0.043</span>. A
+        risk score used to choose a prophylaxis regimen has to mean what it
+        says.
+      </p>
+      <p>
+        The next real gain is not a better model. It is patient-level registry
+        data — exposure days, product type, treatment intensity, HLA haplotype.
+        Those are the variables that dominate the outcome, and none of them are
+        in this database.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="col">
+      <p>
+        Code, data pipeline and every measurement behind this page:
+        <a href="https://github.com/dchaudhari7177/hemophilia">github.com/dchaudhari7177/hemophilia</a>.
+        All figures are regenerated from JSON artefacts — nothing in the
+        write-up is transcribed by hand.
+      </p>
+      <p style="font-size:13.5px;color:var(--faint)">
+        Sources: CDC Hemophilia A Mutation Project (CHAMP) and Hemophilia B
+        Mutation Project (CHBMP), 2022 releases · UniProt P00451 · RefSeq
+        NM_000132.4. Reference works: Singh &amp; Singh, <em>Curr. Pharm.
+        Biotechnol.</em> 26(13), 2025; and the group's own prior capstone
+        notebook.
+      </p>
+      <div class="disclaim">
+        <strong>Not a medical device.</strong> Research and educational use
+        only. This does not replace clinical judgement or laboratory inhibitor
+        testing.
+      </div>
+    </div>
+  </div>
+</footer>
