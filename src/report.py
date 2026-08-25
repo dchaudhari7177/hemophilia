@@ -359,6 +359,36 @@ def section_significance(cmp) -> str:
     return "\n".join(out)
 
 
+def section_selection(sel) -> str:
+    if not sel:
+        return ""
+    out = ["### 4.3 Which model gets shipped, and why\n"]
+    out.append(f"**Rule, fixed before looking at the answer:** {sel['rule']}.\n")
+    if not sel.get("statistically_tied_tier"):
+        return "\n".join(out)
+    out.append(
+        f"Repeated CV and position-blocked CV disagree, and the disagreement is "
+        f"informative. A random split can put residue 490 in training and "
+        f"residue 491 in test — neighbouring positions in the same epitope, "
+        f"which is closer to interpolation than prediction. Blocking removes "
+        f"that, and it is the situation a treatment centre is actually in when a "
+        f"newly sequenced patient carries an uncatalogued variant.\n")
+    out.append("| Model in the statistically-tied tier | Repeated-CV AUC | Blocked AUC |")
+    out.append("|---|---|---|")
+    for name, bl in sel["blocked_auc_within_tier"].items():
+        out.append(f"| {name} | — | {bl:.4f} |")
+    out.append("")
+    out.append(f"{sel['note']}\n")
+    if sel.get("changed_from_cv_winner"):
+        out.append(
+            f"The rule therefore ships **{sel['selected']}** rather than "
+            f"{sel['best_by_repeated_cv']}, which had the higher headline AUC. "
+            f"Choosing the other way round would have meant picking the "
+            f"protocol that flattered the number — the kind of choice §2 of this "
+            f"report exists to call out.\n")
+    return "\n".join(out)
+
+
 def section_final(final) -> str:
     if not final:
         return ""
@@ -582,6 +612,7 @@ def build() -> Path:
     quant = _load("quantisation")
     abl = _load("ablation")
     cmp = _load("model_comparison")
+    sel = _load("selection")
 
     parts = [
         section_header(),
@@ -591,6 +622,7 @@ def build() -> Path:
         section_ablation(abl),
         section_models(cv, blocked, tuning),
         section_significance(cmp),
+        section_selection(sel),
         section_final(final),
         section_subgroups(sub),
         section_external(external),
