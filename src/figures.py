@@ -232,3 +232,45 @@ def fig_biology():
 
     fig.tight_layout()
     return _save(fig, "04_cohort_biology")
+
+
+# ---------------------------------------------------------------------------
+# Explainability
+# ---------------------------------------------------------------------------
+def fig_explainability(importance_df=None, block_df=None, attention_df=None):
+    parts = [d for d in (importance_df, block_df, attention_df) if d is not None]
+    if not parts:
+        return None
+    ncol = len(parts)
+    fig, axes = plt.subplots(1, ncol, figsize=(5.2 * ncol, 5.4))
+    if ncol == 1:
+        axes = [axes]
+    i = 0
+    if importance_df is not None:
+        d = importance_df.head(15).iloc[::-1]
+        axes[i].barh(range(len(d)), d["mean_abs_shap"], color=PALETTE["primary"],
+                     height=0.66)
+        axes[i].set_yticks(range(len(d)))
+        axes[i].set_yticklabels(d["feature"], fontsize=7.5)
+        _style(axes[i], "SHAP global importance", "mean |SHAP|", "")
+        i += 1
+    if block_df is not None:
+        d = block_df.iloc[::-1]
+        axes[i].barh(range(len(d)), d["share"] * 100, color=PALETTE["good"],
+                     height=0.6)
+        axes[i].set_yticks(range(len(d)))
+        axes[i].set_yticklabels(d["block"], fontsize=8)
+        for j, s in enumerate(d["share"] * 100):
+            axes[i].text(s + 0.4, j, f"{s:.1f}%", va="center", fontsize=7.5)
+        _style(axes[i], "SHAP attribution by biological block", "% of total |SHAP|", "")
+        i += 1
+    if attention_df is not None:
+        d = attention_df.iloc[::-1]
+        axes[i].barh(range(len(d)), d["mean_attention"], xerr=d["std_attention"],
+                     color=PALETTE["warn"], height=0.6,
+                     error_kw=dict(ecolor=PALETTE["muted"], lw=1, capsize=3))
+        axes[i].set_yticks(range(len(d)))
+        axes[i].set_yticklabels(d["block"], fontsize=8)
+        _style(axes[i], "Intrinsic block attention", "mean attention weight", "")
+    fig.tight_layout()
+    return _save(fig, "05_explainability")
