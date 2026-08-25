@@ -274,3 +274,52 @@ def fig_explainability(importance_df=None, block_df=None, attention_df=None):
         _style(axes[i], "Intrinsic block attention", "mean attention weight", "")
     fig.tight_layout()
     return _save(fig, "05_explainability")
+
+
+# ---------------------------------------------------------------------------
+# External validation
+# ---------------------------------------------------------------------------
+def fig_external():
+    ext = _load("external")
+    fin = _load("final")
+    if not (ext and fin):
+        return None
+    labels = ["CHAMP (F8)\ninternal test", "CHBMP (F9)\nzero-shot transfer"]
+    vals = [fin["test_calibrated_youden"]["auc_roc"], ext["metrics"]["auc_roc"]]
+    los = [fin["auc_ci"]["lo"], ext["auc_ci"]["lo"]]
+    his = [fin["auc_ci"]["hi"], ext["auc_ci"]["hi"]]
+
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
+    x = np.arange(2)
+    err = np.array([[v - lo for v, lo in zip(vals, los)],
+                    [hi - v for v, hi in zip(vals, his)]])
+    ax.bar(x, vals, 0.45, yerr=err, color=[PALETTE["primary"], PALETTE["good"]],
+           error_kw=dict(ecolor=PALETTE["muted"], lw=1.2, capsize=6))
+    ax.axhline(0.5, color=PALETTE["accent"], linestyle="--", lw=1.2,
+               label="Chance")
+    for xi, v in zip(x, vals):
+        ax.text(xi, v + 0.02, f"{v:.3f}", ha="center", fontsize=9,
+                fontweight="bold")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=8.5)
+    ax.set_ylim(0, 1.0)
+    _style(ax, "Internal and cross-gene external validation", "", "AUC-ROC (95% CI)")
+    ax.legend(fontsize=8, frameon=False)
+    return _save(fig, "06_external_validation")
+
+
+def build_all() -> list:
+    made = []
+    for fn in (fig_leakage_audit, fig_model_comparison, fig_performance_panel,
+               fig_biology, fig_external):
+        try:
+            p = fn()
+            if p:
+                made.append(p)
+        except Exception as exc:                      # a missing stage is fine
+            print(f"  !! {fn.__name__}: {type(exc).__name__}: {exc}")
+    return made
+
+
+if __name__ == "__main__":
+    build_all()
