@@ -94,3 +94,38 @@ def fig_leakage_audit():
     ax.legend(fontsize=8, frameon=False, ncol=3, loc="upper center",
               bbox_to_anchor=(0.5, -0.16))
     return _save(fig, "01_leakage_audit")
+
+
+# ---------------------------------------------------------------------------
+# Model comparison
+# ---------------------------------------------------------------------------
+def fig_model_comparison():
+    cv = _load("cv")
+    if not cv:
+        return None
+    blocked = _load("blocked_cv") or {"models": {}}
+    names = cv["ranking"]
+    means = [cv["models"][n]["cv_auc_mean"] for n in names]
+    stds = [cv["models"][n]["cv_auc_std"] for n in names]
+    bl = [blocked["models"].get(n, {}).get("blocked_auc_mean") for n in names]
+
+    fig, ax = plt.subplots(figsize=(9, 0.42 * len(names) + 2.2))
+    y = np.arange(len(names))
+    ax.barh(y, means, xerr=stds, color=PALETTE["primary"], height=0.55,
+            error_kw=dict(ecolor=PALETTE["muted"], lw=1, capsize=3),
+            label="Repeated stratified CV")
+    have = [(yi, b) for yi, b in zip(y, bl) if b is not None]
+    if have:
+        ax.scatter([b for _, b in have], [yi for yi, _ in have], s=34,
+                   color=PALETTE["accent"], zorder=5, marker="D",
+                   label="Position-blocked CV")
+    for yi, m in zip(y, means):
+        ax.text(m + 0.008, yi, f"{m:.3f}", va="center", fontsize=7.5)
+    ax.axvline(0.5, color=PALETTE["muted"], linestyle=":", linewidth=1)
+    ax.set_yticks(y)
+    ax.set_yticklabels(names, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0.45, max(means) + 0.08)
+    _style(ax, "Model comparison on leakage-free features", "AUC-ROC", "")
+    ax.legend(fontsize=8, frameon=False, loc="lower right")
+    return _save(fig, "02_model_comparison")
