@@ -218,6 +218,57 @@ def section_features(quant) -> str:
     return "\n".join(out)
 
 
+def section_ablation(abl) -> str:
+    if not abl:
+        return ""
+    sd = abl["signal_decomposition"]
+    lobo = abl["leave_one_block_out"]
+    sweep = abl["feature_count_sweep"]
+
+    out = ["### 3.1 What is the engineering actually worth?\n"]
+    out.append(
+        "Feature engineering is easy to justify after the fact, so it is worth "
+        "measuring rather than describing. All rows below use the same "
+        "ExtraTrees model and the same 5-fold protocol on the training split.\n")
+    out.append("| Feature set | k | AUC-ROC |")
+    out.append("|---|---|---|")
+    for name in ["null-mutation flag alone", "variant type only",
+                 "clinical severity only", "variant type + severity",
+                 "all features"]:
+        if name in sd:
+            out.append(f"| {name} | {sd[name]['n_features']} | "
+                       f"{sd[name]['auc']:.4f} |")
+    out.append("")
+    lift = sd.get("_lift_over_variant_type_and_severity")
+    out.append(
+        f"The two variables any clinician already has — variant type and FVIII "
+        f"activity stratum — reach {sd['variant type + severity']['auc']:.4f} on "
+        f"their own. The full engineered set adds **{lift:+.4f} AUC** on top. "
+        f"That is a real but modest gain, and stating it that way is more "
+        f"useful than implying the mechanistic features carry the model.\n")
+
+    out.append("**Leave-one-block-out.** Cost of removing each biological block "
+               f"from the full set (full-set AUC {lobo['full_auc']:.4f}):\n")
+    out.append("| Block removed | Features dropped | AUC without | Cost |")
+    out.append("|---|---|---|---|")
+    for name, v in lobo["blocks"].items():
+        out.append(f"| {name} | {v['n_removed']} | {v['auc_without']:.4f} | "
+                   f"{v['cost_of_removal']:+.4f} |")
+    out.append("")
+    out.append(
+        "A block whose removal costs nothing is not contributing, however good "
+        "the biological story behind it sounds. Those are reported here rather "
+        "than quietly retained.\n")
+
+    out.append(
+        f"**Feature count.** With {sweep.get('best_k')} top-ranked features the "
+        f"model reaches AUC {sweep.get('best_auc'):.4f}; the sweep across "
+        f"{', '.join(sweep['sweep'].keys())} features is in "
+        f"`reports/ablation.json`. Top-ranked features: "
+        + ", ".join(f"`{f}`" for f in sweep["ranking_top_20"][:8]) + ".\n")
+    return "\n".join(out)
+
+
 def section_models(cv, blocked, tuning) -> str:
     if not cv:
         return ""
@@ -490,12 +541,14 @@ def build() -> Path:
     ssl = _load("ssl")
     sub = _load("subgroups")
     quant = _load("quantisation")
+    abl = _load("ablation")
 
     parts = [
         section_header(),
         section_summary(audit, cv, final, external, ssl),
         section_audit(audit),
         section_features(quant),
+        section_ablation(abl),
         section_models(cv, blocked, tuning),
         section_final(final),
         section_subgroups(sub),
