@@ -1,0 +1,7 @@
+{
+  "note": "Cost of snapping positional features onto a 40-bin grid.",
+  "auc_full_resolution": 0.7372,
+  "auc_quantised": 0.7372,
+  "delta": -0.0,
+  "max_feature_cardinality_fraction": 0.06
+}

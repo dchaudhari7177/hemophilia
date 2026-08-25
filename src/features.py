@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 
 from . import biology as bio
+from .biology import SIGNAL_PEPTIDE_LEN
 from .hgvs_parser import parse_cdna, parse_protein
 
 # Columns that must never reach a model. Kept explicit so the leakage audit can
@@ -88,6 +89,11 @@ _MECHANISM_MAP = {
 # who make no FVIII protein at all have never been immunologically tolerised
 # to it, so infused FVIII is seen as foreign.
 NULL_VARIANT_TYPES = {"large_structural", "frameshift", "nonsense", "splice"}
+
+# Resolution of the positional grid. 40 bins across the 2,332-residue mature
+# protein is ~58 residues per bin: finer than a FVIII domain, much coarser
+# than a single variant.
+N_POSITION_BINS = 40
 
 
 def _norm(s) -> str:
@@ -272,6 +278,27 @@ class VariantFeaturizer:
         r = row.iloc[0]
         return (float(r["start"]), float(r["end"]), float(r["length"]))
 
+    @staticmethod
+    def _quantize(values: np.ndarray, lo: float, hi: float,
+                  n_bins: int = N_POSITION_BINS) -> np.ndarray:
+        """Snap a positional feature onto a coarse grid.
+
+        Genomic position is biologically real -- it determines the domain, the
+        epitope, how much protein a stop codon removes. At full resolution it
+        is also near-unique, and a tree ensemble will happily split it down to
+        the individual patient, which is the identifier problem again in
+        numeric clothing.
+
+        Binning keeps the biology and removes the identity. The default grid is
+        ``N_POSITION_BINS`` bins across the coding sequence, roughly 58 residues
+        each: finer than a FVIII domain, far coarser than one variant. See
+        ``reports/quantisation.json`` for the measured cost of doing this.
+        """
+        width = (hi - lo) / n_bins
+        out = np.where(np.isnan(values), np.nan,
+                       np.round((values - lo) / width) * width + lo)
+        return out
+
     def _density(self, positions: np.ndarray, width: float) -> np.ndarray:
         """How many catalogued variants sit within ``width`` nt of this one.
 
@@ -363,9 +390,9 @@ class VariantFeaturizer:
         # BLOCK 2 -- position within the FVIII molecule
         # ================================================================
         mature = np.array([p.mature_pos for p in pr], dtype=float)
-        # fall back to the exon midpoint when the protein change is unparsable
-        add("position", "mature_pos", mature)
-        add("position", "mature_pos_norm", mature / bio.MATURE_LEN)
+        mature_binned = self._quantize(mature, -SIGNAL_PEPTIDE_LEN, bio.MATURE_LEN)
+        add("position", "mature_pos", mature_binned)
+        add("position", "mature_pos_norm", mature_binned / bio.MATURE_LEN)
         add("position", "mature_pos_known", (~np.isnan(mature)).astype(float))
 
         dom_from_pos = [bio.domain_of(p) for p in mature]
@@ -405,7 +432,9 @@ class VariantFeaturizer:
             add("position", f"in_{name}",
                 np.array([bio.in_span(p, lo, hi) for p in mature], dtype=float))
         add("position", "nearest_epitope_dist",
-            np.array([bio.nearest_epitope_distance(p) for p in mature]))
+            self._quantize(
+                np.array([bio.nearest_epitope_distance(p) for p in mature]),
+                0.0, bio.MATURE_LEN, 20))
         add("position", "in_any_epitope",
             np.array([float(any(bio.in_span(p, lo, hi)
                                 for _, lo, hi in bio.INHIBITOR_EPITOPES))
@@ -418,11 +447,13 @@ class VariantFeaturizer:
         # BLOCK 4 -- truncation severity
         # ================================================================
         ptc = np.array([p.ptc_mature_pos for p in pr], dtype=float)
-        add("truncation", "ptc_pos", ptc)
+        add("truncation", "ptc_pos",
+            self._quantize(ptc, -SIGNAL_PEPTIDE_LEN, bio.MATURE_LEN))
         add("truncation", "ptc_known", (~np.isnan(ptc)).astype(float))
         frac_lost = np.where(np.isnan(ptc), np.nan,
                              1.0 - np.clip(ptc, 0, bio.MATURE_LEN) / bio.MATURE_LEN)
-        add("truncation", "fraction_protein_lost", frac_lost)
+        add("truncation", "fraction_protein_lost",
+            self._quantize(frac_lost, 0.0, 1.0, 20))
         add("truncation", "fs_ter_offset",
             np.array([p.fs_ter_offset for p in pr], dtype=float))
 
@@ -515,7 +546,8 @@ class VariantFeaturizer:
             add("nucleotide", f"alt_nt_{b}", np.array([float(a == b) for a in alt_nt]))
 
         cpos = np.array([x.cdna_pos for x in cd], dtype=float)
-        add("nucleotide", "cdna_pos_norm", cpos / 7053.0)
+        add("nucleotide", "cdna_pos_norm",
+            self._quantize(cpos, -250.0, 7053.0) / 7053.0)
         add("nucleotide", "indel_length_mod3",
             np.array([float(np.nan_to_num(s, nan=0.0) % 3) for s in span]))
         add("nucleotide", "frame_preserving",
@@ -581,7 +613,7 @@ class VariantFeaturizer:
         # ---- mutational-hotspot context (position density, labels never used)
         for width, label in [(50, "50nt"), (500, "500nt")]:
             add("position", f"hotspot_density_{label}",
-                self._density(cpos, width))
+                np.round(self._density(cpos, width), 2))
         add("position", "domain_variant_load",
             self._domain_load(dom))
 
