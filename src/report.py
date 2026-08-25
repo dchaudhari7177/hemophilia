@@ -44,6 +44,14 @@ def _num(x, digits=4):
     return "—" if x is None else f"{float(x):.{digits}f}"
 
 
+def _signed(x, digits=4):
+    """Signed delta that renders an exact zero as 0, not -0."""
+    if x is None:
+        return "—"
+    v = round(float(x), digits)
+    return f"{0.0:.{digits}f}" if v == 0 else f"{v:+.{digits}f}"
+
+
 def _ci(d):
     if not d or d.get("lo") is None:
         return "—"
@@ -209,7 +217,7 @@ def section_features(quant) -> str:
             f"Positions are therefore snapped to a 40-bin grid (~58 residues "
             f"per bin — finer than a FVIII domain, far coarser than one "
             f"variant). The measured cost of doing this is "
-            f"**{quant['delta']:+.4f} AUC** "
+            f"**{_signed(quant['delta'])} AUC** "
             f"({quant['auc_full_resolution']:.4f} → {quant['auc_quantised']:.4f}). "
             f"That the cost is zero is the cleanest available evidence that the "
             f"fine resolution was carrying identity, not biology. A regression "
@@ -253,7 +261,7 @@ def section_ablation(abl) -> str:
     out.append("|---|---|---|---|")
     for name, v in lobo["blocks"].items():
         out.append(f"| {name} | {v['n_removed']} | {v['auc_without']:.4f} | "
-                   f"{v['cost_of_removal']:+.4f} |")
+                   f"{_signed(v['cost_of_removal'])} |")
     out.append("")
     out.append(
         "A block whose removal costs nothing is not contributing, however good "
