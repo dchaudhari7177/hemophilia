@@ -117,3 +117,37 @@ def compute_metrics(y_true, y_prob, threshold: float | None = None) -> dict:
         "net_benefit_at_20pct": round(net_benefit(y_true, y_prob, 0.20), 4),
         "tp": int(tp), "tn": int(tn), "fp": int(fp), "fn": int(fn),
     }
+
+
+# ---------------------------------------------------------------------------
+# Uncertainty
+# ---------------------------------------------------------------------------
+def bootstrap_ci(y_true, y_prob, metric: str = "auc_roc", n_boot: int = 2000,
+                 alpha: float = 0.05, random_state: int = RANDOM_STATE) -> dict:
+    """Stratified bootstrap percentile interval for one metric."""
+    y_true = np.asarray(y_true).astype(int)
+    y_prob = np.asarray(y_prob, dtype=float)
+    rng = np.random.default_rng(random_state)
+    pos = np.where(y_true == 1)[0]
+    neg = np.where(y_true == 0)[0]
+
+    vals = []
+    for _ in range(n_boot):
+        idx = np.concatenate([rng.choice(pos, len(pos), replace=True),
+                              rng.choice(neg, len(neg), replace=True)])
+        yt, yp = y_true[idx], y_prob[idx]
+        if len(np.unique(yt)) < 2:
+            continue
+        try:
+            vals.append(compute_metrics(yt, yp)[metric])
+        except (ValueError, KeyError):
+            continue
+    if not vals:
+        return {"point": None, "lo": None, "hi": None}
+    vals = np.asarray(vals, dtype=float)
+    return {
+        "point": round(float(compute_metrics(y_true, y_prob)[metric]), 4),
+        "lo": round(float(np.percentile(vals, 100 * alpha / 2)), 4),
+        "hi": round(float(np.percentile(vals, 100 * (1 - alpha / 2))), 4),
+        "n_boot": int(len(vals)),
+    }
