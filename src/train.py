@@ -379,3 +379,47 @@ def stage_external(data=None) -> dict:
     }
     _save("external", out)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--stage", default="all",
+                    choices=["audit", "cv", "blocked", "final", "ssl",
+                             "external", "all"])
+    ap.add_argument("--no-neural", action="store_true",
+                    help="skip the torch models (much faster)")
+    args = ap.parse_args()
+
+    include_neural = not args.no_neural
+    t0 = time.time()
+
+    if args.stage == "audit":
+        stage_audit()
+        return
+
+    data = prepare()
+    _log(f"Data ready: X={data['X'].shape}, "
+         f"{int(data['y'].sum())} events / {len(data['y'])} labelled patients, "
+         f"{len(data['unlabelled'])} unlabelled")
+
+    if args.stage in ("cv", "all"):
+        stage_cv(data, include_neural)
+    if args.stage in ("blocked", "all"):
+        stage_blocked(data, include_neural)
+    if args.stage in ("final", "all"):
+        stage_final(data)
+    if args.stage in ("ssl", "all"):
+        stage_ssl(data)
+    if args.stage in ("external", "all"):
+        stage_external(data)
+    if args.stage == "all":
+        stage_audit()
+
+    _log(f"Done in {time.time() - t0:.0f}s")
+
+
+if __name__ == "__main__":
+    main()
