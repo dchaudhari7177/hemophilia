@@ -126,22 +126,28 @@ def stage_audit() -> dict:
 # Stage: repeated stratified cross-validation
 # ---------------------------------------------------------------------------
 def _cv_scores(model, X, y, cv, name: str) -> dict:
-    oof_by_repeat: list[np.ndarray] = []
-    fold_aucs: list[float] = []
-    oof = np.full(len(y), np.nan)
-    seen = np.zeros(len(y), dtype=int)
-    acc = np.zeros(len(y), dtype=float)
+    """Fold AUCs plus the repeat-averaged out-of-fold prediction vector.
 
-    for fold, (tr, te) in enumerate(cv.split(X, y)):
+    With ``RepeatedStratifiedKFold`` each row is held out once per repeat, so
+    the per-row predictions are averaged across repeats before the pooled
+    metrics are computed. The fold AUCs stay separate -- their spread is the
+    honest measure of how much of a model's lead is noise.
+    """
+    from sklearn.metrics import roc_auc_score
+
+    fold_aucs: list[float] = []
+    seen = np.zeros(len(y), dtype=int)
+    total = np.zeros(len(y), dtype=float)
+
+    for tr, te in cv.split(X, y):
         pipe = build_pipeline(model)
         pipe.fit(X[tr], y[tr])
         p = pipe.predict_proba(X[te])[:, 1]
-        acc[te] += p
+        total[te] += p
         seen[te] += 1
-        from sklearn.metrics import roc_auc_score
         fold_aucs.append(float(roc_auc_score(y[te], p)))
 
-    oof = acc / np.maximum(seen, 1)
+    oof = total / np.maximum(seen, 1)
     m = compute_metrics(y, oof)
     return {
         "model": name,
