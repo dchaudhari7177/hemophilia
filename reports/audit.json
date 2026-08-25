@@ -1,0 +1,117 @@
+{
+  "A_reference_pipeline": {
+    "description": "Reference preprocessing and labels ('Not reported' -> 0).",
+    "test_accuracy": 0.8639,
+    "test_auc": 0.6391,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 3232,
+    "n_test": 808,
+    "test_prevalence": 0.1139,
+    "majority_class_accuracy": 0.8861
+  },
+  "B_identifiers_only": {
+    "description": "Only the near-unique identifier columns (HGVS cDNA, hg19 Coordinates, HGVS Protein, Mature Protein, Codon). Carries no biology.",
+    "columns_used": [
+      "HGVS cDNA",
+      "hg19 Coordinates",
+      "HGVS Protein",
+      "Mature Protein",
+      "Codon"
+    ],
+    "test_accuracy": 0.8577,
+    "test_auc": 0.5832,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 3232,
+    "n_test": 808,
+    "test_prevalence": 0.1139,
+    "majority_class_accuracy": 0.8861
+  },
+  "C_no_identifiers": {
+    "description": "Reference pipeline with identifier columns removed.",
+    "columns_used": [
+      "Variant Type",
+      "Mechanism",
+      "Exon",
+      "Domain",
+      "Subtype",
+      "In Poly A",
+      "Severe (<1 U/dL)",
+      "Moderate (1-5 U/dL)",
+      "Mild (>5 U/dL)",
+      "No FVIII level given",
+      "Reported Clinical Severity"
+    ],
+    "test_accuracy": 0.7562,
+    "test_auc": 0.6326,
+    "train_accuracy": 0.8369,
+    "train_auc": 0.9254,
+    "n_train": 3232,
+    "n_test": 808,
+    "test_prevalence": 0.1139,
+    "majority_class_accuracy": 0.8861
+  },
+  "D_honest_labels": {
+    "description": "Reference features, but rows with an unrecorded outcome are excluded rather than called negative.",
+    "test_accuracy": 0.7935,
+    "test_auc": 0.7062,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 1836,
+    "n_test": 460,
+    "test_prevalence": 0.2,
+    "majority_class_accuracy": 0.8
+  },
+  "E_label_permutation": {
+    "description": "Labels shuffled. Test AUC must fall to ~0.50; a train AUC that stays near 1.0 shows the model is fitting row identity, not signal.",
+    "test_accuracy": 0.8676,
+    "test_auc": 0.4355,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 3232,
+    "n_test": 808,
+    "test_prevalence": 0.1225,
+    "majority_class_accuracy": 0.8775
+  },
+  "F_novel_variant_split": {
+    "description": "Test set is a contiguous stretch of the gene that never appears in training -- the real task of scoring a newly discovered variant.",
+    "test_accuracy": 0.8824,
+    "test_auc": 0.6467,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 3232,
+    "n_test": 808,
+    "test_prevalence": 0.125,
+    "majority_class_accuracy": 0.875
+  },
+  "G_oversample_before_split": {
+    "description": "Random Over-Sampling applied before the train/test split, as in the classical-ML reference. Duplicated minority rows appear on both sides of the split.",
+    "test_accuracy": 0.9525,
+    "test_auc": 0.9938,
+    "train_accuracy": 1.0,
+    "train_auc": 1.0,
+    "n_train": 5726,
+    "n_test": 1432,
+    "test_prevalence": 0.5,
+    "majority_class_accuracy": 0.5,
+    "test_rows_also_in_train": 716,
+    "fraction_test_rows_duplicated_from_train": 0.5
+  },
+  "_interpretation": {
+    "reference_test_auc": 0.6391,
+    "identifiers_alone_test_auc": 0.5832,
+    "biology_alone_test_auc": 0.6326,
+    "share_of_auc_lift_attributable_to_identifiers": 0.598,
+    "accuracy_inflation_from_relabelling_unknowns": 0.0704
+  },
+  "_label_summary": {
+    "n_total": 4040,
+    "n_positive": 461,
+    "n_negative": 1835,
+    "n_unlabelled": 1744,
+    "n_labelled": 2296,
+    "prevalence_labelled": 0.2008,
+    "prevalence_if_unlabelled_called_negative": 0.1141
+  }
+}
