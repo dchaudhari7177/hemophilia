@@ -59,3 +59,63 @@ MONOTONE_PRIORS: dict[str, int] = {
 def monotone_vector(feature_names: list[str]) -> list[int]:
     """Constraint vector aligned to the design matrix, 0 = unconstrained."""
     return [MONOTONE_PRIORS.get(n, 0) for n in feature_names]
+
+
+# ---------------------------------------------------------------------------
+# Search spaces
+# ---------------------------------------------------------------------------
+def search_spaces(random_state: int = RANDOM_STATE) -> dict:
+    import lightgbm as lgb
+    import xgboost as xgb
+
+    return {
+        "ExtraTrees": (
+            ExtraTreesClassifier(class_weight="balanced", n_jobs=-1,
+                                 random_state=random_state),
+            {"clf__n_estimators": randint(300, 1200),
+             "clf__min_samples_leaf": randint(1, 20),
+             "clf__max_features": uniform(0.05, 0.6),
+             "clf__max_depth": [None, 8, 12, 20],
+             "clf__criterion": ["gini", "entropy"]},
+        ),
+        "RandomForest": (
+            RandomForestClassifier(class_weight="balanced_subsample", n_jobs=-1,
+                                   random_state=random_state),
+            {"clf__n_estimators": randint(300, 1200),
+             "clf__min_samples_leaf": randint(1, 20),
+             "clf__max_features": uniform(0.05, 0.6),
+             "clf__max_depth": [None, 8, 12, 20]},
+        ),
+        "LightGBM": (
+            lgb.LGBMClassifier(class_weight="balanced", n_jobs=-1, verbose=-1,
+                               random_state=random_state),
+            {"clf__n_estimators": randint(150, 900),
+             "clf__learning_rate": loguniform(5e-3, 1e-1),
+             "clf__num_leaves": randint(4, 48),
+             "clf__min_child_samples": randint(5, 60),
+             "clf__subsample": uniform(0.5, 0.5),
+             "clf__subsample_freq": [1],
+             "clf__colsample_bytree": uniform(0.3, 0.7),
+             "clf__reg_lambda": loguniform(1e-2, 50),
+             "clf__reg_alpha": loguniform(1e-3, 10)},
+        ),
+        "XGBoost": (
+            xgb.XGBClassifier(eval_metric="logloss", n_jobs=-1,
+                              random_state=random_state),
+            {"clf__n_estimators": randint(150, 900),
+             "clf__learning_rate": loguniform(5e-3, 1e-1),
+             "clf__max_depth": randint(2, 8),
+             "clf__min_child_weight": randint(1, 20),
+             "clf__subsample": uniform(0.5, 0.5),
+             "clf__colsample_bytree": uniform(0.3, 0.7),
+             "clf__reg_lambda": loguniform(1e-2, 50),
+             "clf__scale_pos_weight": uniform(1, 5)},
+        ),
+        "LogisticRegression": (
+            LogisticRegression(penalty="elasticnet", solver="saga",
+                               max_iter=8000, class_weight="balanced",
+                               random_state=random_state),
+            {"clf__C": loguniform(1e-3, 10),
+             "clf__l1_ratio": uniform(0, 1)},
+        ),
+    }
