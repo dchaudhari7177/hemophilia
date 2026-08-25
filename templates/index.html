@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FVIII Inhibitor Risk — Hemophilia A</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>FVIII Inhibitor Risk</h1>
+    <p class="sub">Genomic risk stratification for hemophilia A from the F8 variant</p>
+    {% if metrics %}
+    <ul class="badges">
+      <li><span>Model</span><strong>{{ metrics.model }}</strong></li>
+      <li><span>Test AUC</span><strong>{{ '%.3f'|format(metrics.auc) }}</strong></li>
+      <li><span>Sensitivity</span><strong>{{ '%.0f'|format(metrics.sensitivity * 100) }}%</strong></li>
+      <li><span>Specificity</span><strong>{{ '%.0f'|format(metrics.specificity * 100) }}%</strong></li>
+      <li><span>Held-out n</span><strong>{{ metrics.n_test }}</strong></li>
+    </ul>
+    {% endif %}
+  </div>
+</header>
+
+<main class="wrap grid">
+  <section class="card">
+    <h2>Patient variant</h2>
+    <form id="form">
+      <div class="field">
+        <label for="hgvs_cdna">HGVS cDNA</label>
+        <input id="hgvs_cdna" name="hgvs_cdna" placeholder="c.6496C&gt;T" autocomplete="off">
+        <small>e.g. <code>c.6496C&gt;T</code>, <code>c.106_107del</code></small>
+      </div>
+      <div class="field">
+        <label for="hgvs_protein">HGVS protein <span class="opt">optional</span></label>
+        <input id="hgvs_protein" name="hgvs_protein" placeholder="p.(Arg2166*)" autocomplete="off">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="variant_type">Variant type</label>
+          <select id="variant_type" name="variant_type">
+            <option value="">—</option>
+            {% for o in options.variant_type %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="mechanism">Mechanism</label>
+          <select id="mechanism" name="mechanism">
+            <option value="">—</option>
+            {% for o in options.mechanism %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="exon">Exon</label>
+          <input id="exon" name="exon" placeholder="23" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="domain">FVIII domain</label>
+          <select id="domain" name="domain">
+            <option value="">—</option>
+            {% for o in options.domain %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="subtype">Chain</label>
+          <select id="subtype" name="subtype">
+            <option value="">—</option>
+            {% for o in options.subtype %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="in_poly_a">In poly-A run</label>
+          <select id="in_poly_a" name="in_poly_a">
+            {% for o in options.in_poly_a %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="severity">Clinical severity (FVIII activity)</label>
+          <select id="severity" name="severity">
+            {% for o in options.severity %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="threshold_rule">Operating point</label>
+          <select id="threshold_rule" name="threshold_rule">
+            <option value="youden_on_train_oof">Balanced (Youden's J)</option>
+            <option value="sensitivity90_on_train_oof">High sensitivity (90%)</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit" id="go">Estimate risk</button>
+        <button type="button" id="demo" class="ghost">Load example</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card" id="out" hidden>
+    <h2>Estimated risk</h2>
+    <div class="result">
+      <div class="gauge"><div class="fill" id="fill"></div></div>
+      <p class="prob"><span id="prob">—</span><small>probability of inhibitor development</small></p>
+      <p class="band" id="band">—</p>
+      <p class="call" id="call">—</p>
+    </div>
+    <h3>What drove this estimate</h3>
+    <table id="expl"><thead><tr><th>Feature</th><th>Effect</th></tr></thead><tbody></tbody></table>
+    <p class="disclaimer" id="disclaimer"></p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>PES University B.Tech Capstone · PW_GRS_01 · Trained on the CDC CHAMP database.
+     Research and educational use only — not a validated medical device.</p>
+</footer>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
