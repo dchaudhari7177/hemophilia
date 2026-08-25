@@ -1,0 +1,14 @@
+# virtualenv
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ipynb_checkpoints/
+
+# large binaries kept out of history
+*.xlsx
+
+# OS
+Thumbs.db
+.DS_Store
