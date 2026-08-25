@@ -219,3 +219,99 @@ class BioBlockAttentionNet(nn.Module):
         self.last_attention_ = a.detach()
         z = (a.unsqueeze(-1) * h).sum(dim=1)
         return self.head(z).squeeze(-1)
+
+
+# ---------------------------------------------------------------------------
+# sklearn adapter for the torch models
+# ---------------------------------------------------------------------------
+class TorchClassifier(BaseEstimator, ClassifierMixin):
+    """Wrap a torch module so it behaves like a scikit-learn classifier."""
+
+    def __init__(self, builder=None, epochs: int = 200, batch_size: int = 64,
+                 lr: float = 1e-3, weight_decay: float = 1e-4,
+                 patience: int = 25, alpha: float = 0.75, gamma: float = 2.0,
+                 val_fraction: float = 0.15, random_state: int = RANDOM_STATE,
+                 verbose: bool = False):
+        self.builder = builder
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.patience = patience
+        self.alpha = alpha
+        self.gamma = gamma
+        self.val_fraction = val_fraction
+        self.random_state = random_state
+        self.verbose = verbose
+
+    def fit(self, X, y):
+        _seed_everything(self.random_state)
+        X = np.asarray(X, dtype=np.float32)
+        y = np.asarray(y, dtype=np.float32)
+        self.classes_ = np.array([0, 1])
+        self.n_features_in_ = X.shape[1]
+
+        # hold out a slice for early stopping, stratified on the outcome
+        rng = np.random.default_rng(self.random_state)
+        idx = np.arange(len(y))
+        val_idx = np.concatenate([
+            rng.choice(idx[y == c],
+                       size=max(1, int(round(self.val_fraction * (y == c).sum()))),
+                       replace=False)
+            for c in (0, 1) if (y == c).sum() > 0
+        ])
+        tr_idx = np.setdiff1d(idx, val_idx)
+
+        self.model_ = self.builder(self.n_features_in_)
+        opt = torch.optim.AdamW(self.model_.parameters(), lr=self.lr,
+                                weight_decay=self.weight_decay)
+        sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=self.epochs)
+        loss_fn = FocalLoss(self.alpha, self.gamma)
+
+        Xtr = torch.from_numpy(X[tr_idx]); ytr = torch.from_numpy(y[tr_idx])
+        Xva = torch.from_numpy(X[val_idx]); yva = torch.from_numpy(y[val_idx])
+
+        best, best_state, bad = math.inf, None, 0
+        n = len(tr_idx)
+        for epoch in range(self.epochs):
+            self.model_.train()
+            perm = torch.randperm(n)
+            for s in range(0, n, self.batch_size):
+                b = perm[s:s + self.batch_size]
+                if len(b) < 2:            # BatchNorm needs >1 row
+                    continue
+                opt.zero_grad()
+                loss = loss_fn(self.model_(Xtr[b]), ytr[b])
+                loss.backward()
+                nn.utils.clip_grad_norm_(self.model_.parameters(), 5.0)
+                opt.step()
+            sched.step()
+
+            self.model_.eval()
+            with torch.no_grad():
+                vloss = float(loss_fn(self.model_(Xva), yva))
+            if vloss < best - 1e-5:
+                best, bad = vloss, 0
+                best_state = {k: v.detach().clone()
+                              for k, v in self.model_.state_dict().items()}
+            else:
+                bad += 1
+                if bad >= self.patience:
+                    break
+            if self.verbose and epoch % 20 == 0:
+                print(f"  epoch {epoch:3d}  val_loss {vloss:.5f}")
+
+        if best_state is not None:
+            self.model_.load_state_dict(best_state)
+        self.model_.eval()
+        return self
+
+    def predict_proba(self, X):
+        X = torch.from_numpy(np.asarray(X, dtype=np.float32))
+        self.model_.eval()
+        with torch.no_grad():
+            p = torch.sigmoid(self.model_(X)).numpy()
+        return np.column_stack([1 - p, p])
+
+    def predict(self, X):
+        return (self.predict_proba(X)[:, 1] >= 0.5).astype(int)
