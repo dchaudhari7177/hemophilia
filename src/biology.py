@@ -219,3 +219,16 @@ def nearest_epitope_distance(mature_pos: float | None) -> float:
         return float("nan")
     return min(distance_to_span(mature_pos, lo, hi)
                for _, lo, hi in INHIBITOR_EPITOPES)
+
+
+# --------------------------------------------------------------------------
+# 5. F8 transcript facts (RefSeq NM_000132.4)
+# --------------------------------------------------------------------------
+N_EXONS = 26
+LAST_EXON = 26
+# Exon 14 encodes almost the whole B domain and is by far the largest exon
+# (3106 bp); exon 26 is the 3'-terminal exon, which matters for NMD escape.
+B_DOMAIN_EXON = 14
+# A premature termination codon escapes nonsense-mediated decay if it lies in
+# the last exon or within ~50-55 nt of the final exon-exon junction.
+NMD_ESCAPE_WINDOW_NT = 55
