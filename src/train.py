@@ -58,3 +58,47 @@ def _save(name: str, obj) -> Path:
 
 def _log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Shared data preparation
+# ---------------------------------------------------------------------------
+def prepare(seed: int = RANDOM_STATE):
+    """Load CHAMP, featurise, and carve off a held-out test set.
+
+    The featuriser is fitted on the training rows only. It never sees a label,
+    so this is belt-and-braces rather than a strict requirement, but it keeps
+    the pipeline defensible under the strictest reading.
+    """
+    champ = load_champ()
+    labelled, unlabelled = split_by_label(champ)
+    y = (labelled["inhibitor"] == 1).astype(int).values
+
+    idx = np.arange(len(labelled))
+    tr_idx, te_idx = train_test_split(idx, test_size=TEST_SIZE, stratify=y,
+                                      random_state=seed)
+
+    fz = VariantFeaturizer().fit(labelled.iloc[tr_idx])
+    X = fz.transform(labelled).values.astype(float)
+    X_unl = fz.transform(unlabelled).values.astype(float)
+
+    return {
+        "champ": champ,
+        "labelled": labelled,
+        "unlabelled": unlabelled,
+        "featurizer": fz,
+        "X": X,
+        "y": y,
+        "X_unlabelled": X_unl,
+        "train_idx": tr_idx,
+        "test_idx": te_idx,
+        "blocks": block_index(fz.blocks_, fz.columns_),
+        "feature_names": fz.columns_,
+    }
+
+
+def all_models(blocks, include_neural: bool = True) -> dict:
+    zoo = dict(classical_models())
+    if include_neural:
+        zoo.update(neural_models(blocks))
+    return zoo
