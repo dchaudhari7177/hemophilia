@@ -35,12 +35,22 @@ import pandas as pd
 # SHAP
 # ---------------------------------------------------------------------------
 def shap_values(pipeline, X: np.ndarray, feature_names: list[str],
-                max_rows: int = 500, random_state: int = 42):
-    """SHAP values for a fitted ``Pipeline(prep, clf)``.
+                max_rows: int = 500, random_state: int = 42,
+                background: np.ndarray | None = None):
+    """SHAP values for a fitted estimator.
 
-    The explainer is run on the *transformed* matrix, because that is what the
+    The explainer runs on the *transformed* matrix, because that is what the
     classifier actually sees; column names survive the transform unchanged
     since imputation and scaling are both column-wise.
+
+    ``background`` matters more than it looks. Shapley values are defined
+    against a reference distribution — they answer "how far did this feature
+    move the prediction away from what it would be for a typical patient".
+    Handing the model-agnostic explainer a background built from the single
+    row being explained leaves it nothing to vary, so every attribution comes
+    back exactly zero, silently and without an error. A real sample of
+    training patients has to be supplied for a per-patient explanation to
+    carry any information at all.
     """
     import shap
 
@@ -49,11 +59,15 @@ def shap_values(pipeline, X: np.ndarray, feature_names: list[str],
     # assuming the shape.
     steps = getattr(pipeline, "named_steps", None)
     if steps and "prep" in steps and "clf" in steps:
-        clf = steps["clf"]
-        Xt = steps["prep"].transform(X)
+        prep, clf = steps["prep"], steps["clf"]
+        Xt = prep.transform(X)
+        bg_raw = None if background is None else prep.transform(background)
     else:
         clf = pipeline
         Xt = np.nan_to_num(np.asarray(X, dtype=float), nan=0.0)
+        bg_raw = (None if background is None
+                  else np.nan_to_num(np.asarray(background, dtype=float), nan=0.0))
+
     if len(Xt) > max_rows:
         rng = np.random.default_rng(random_state)
         Xt = Xt[rng.choice(len(Xt), max_rows, replace=False)]
@@ -63,14 +77,27 @@ def shap_values(pipeline, X: np.ndarray, feature_names: list[str],
         vals = explainer.shap_values(Xt)
         if isinstance(vals, list):
             vals = vals[1]
-        elif vals.ndim == 3:
-            vals = vals[:, :, 1]
-    except (TypeError, ValueError, AttributeError):
-        bg = shap.kmeans(Xt, min(50, len(Xt)))
-        explainer = shap.KernelExplainer(
-            lambda z: clf.predict_proba(z)[:, 1], bg)
-        vals = explainer.shap_values(Xt, nsamples=100, silent=True)
+        elif np.asarray(vals).ndim == 3:
+            vals = np.asarray(vals)[:, :, 1]
+        return np.asarray(vals), Xt
+    except Exception:            # not a tree model -- fall through
+        pass
 
+    # Model-agnostic fallback. Prefer the supplied background; only fall back
+    # to the explained rows when there are enough of them to vary.
+    if bg_raw is not None and len(bg_raw) >= 10:
+        source = bg_raw
+    elif len(Xt) >= 10:
+        source = Xt
+    else:
+        raise ValueError(
+            "SHAP needs a background of at least 10 patients to produce "
+            "non-zero attributions; pass `background=` (the saved artefact "
+            "carries one as 'shap_background').")
+
+    bg = shap.kmeans(source, min(25, len(source)))
+    explainer = shap.KernelExplainer(lambda z: clf.predict_proba(z)[:, 1], bg)
+    vals = explainer.shap_values(Xt, nsamples=200, silent=True)
     return np.asarray(vals), Xt
 
 

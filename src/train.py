@@ -316,10 +316,18 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
         },
     }
 
+    # A background sample of training patients ships with the artefact. SHAP
+    # attributions are defined relative to a reference distribution, and
+    # without one a single-patient explanation returns all zeros rather than
+    # failing loudly.
+    rng = np.random.default_rng(RANDOM_STATE)
+    bg_idx = rng.choice(tr, size=min(200, len(tr)), replace=False)
+
     MODELS.mkdir(parents=True, exist_ok=True)
     joblib.dump({"model": cal, "featurizer": data["featurizer"],
                  "thresholds": out["thresholds"],
-                 "feature_names": data["feature_names"]},
+                 "feature_names": data["feature_names"],
+                 "shap_background": X[bg_idx]},
                 MODELS / "final_model.joblib")
     np.savez(REPORTS / "test_predictions.npz",
              y=y[te], p_cal=p_test_cal, p_raw=p_test_raw)

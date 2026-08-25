@@ -44,6 +44,7 @@ class InhibitorRiskModel:
         self.featurizer = bundle["featurizer"]
         self.thresholds = bundle["thresholds"]
         self.feature_names = bundle["feature_names"]
+        self.shap_background = bundle.get("shap_background")
 
     # -- helpers ---------------------------------------------------------
     @staticmethod
@@ -88,7 +89,7 @@ class InhibitorRiskModel:
         df = self._frame([record])
         X = self.featurizer.transform(df).values.astype(float)
         vals, Xt = shap_values(self._base_estimator(), X, self.feature_names,
-                               max_rows=1)
+                               max_rows=1, background=self.shap_background)
         return explain_patient(vals, Xt, self.feature_names, 0, top=top)
 
     def _base_estimator(self):
