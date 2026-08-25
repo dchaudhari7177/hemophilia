@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+title: >-
+  Explainable FVIII Inhibitor Risk Classification in Hemophilia A
+  using F8 Genomic Variant Data
+message: >-
+  If you use this software or its findings, please cite it as below.
+type: software
+authors:
+  - given-names: Dipak
+    family-names: Chaudhari
+    affiliation: PES University
+  - given-names: Tejas
+    family-names: Nagmote
+    affiliation: PES University
+  - given-names: Sneha
+    family-names: A
+    affiliation: PES University
+  - given-names: Varsha
+    family-names: P
+    affiliation: PES University
+repository-code: 'https://github.com/dchaudhari7177/hemophilia'
+abstract: >-
+  A leakage-free, calibrated genomic risk model for FVIII inhibitor
+  development in hemophilia A, built on the CDC CHAMP database and
+  validated zero-shot on the CDC CHBMP hemophilia B cohort. Includes
+  a forensic audit showing that previously published accuracies on
+  this dataset (97.37% and 99.63%) are artifacts of over-sampling
+  before the train/test split, relabelling unrecorded outcomes as
+  negative, and using near-unique identifier columns as features.
+keywords:
+  - hemophilia A
+  - factor VIII inhibitors
+  - F8
+  - clinical prediction model
+  - data leakage
+  - model calibration
+  - explainable AI
+license: MIT
