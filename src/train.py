@@ -335,3 +335,47 @@ def stage_ssl(data=None) -> dict:
     }
     _save("ssl", out)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Stage: external validation on the CHBMP F9 cohort
+# ---------------------------------------------------------------------------
+def stage_external(data=None) -> dict:
+    """Score hemophilia B patients with the hemophilia A model.
+
+    F8 and F9 are different genes coding different proteins, so nothing about
+    F8-specific position or chemistry transfers directly. What can transfer is
+    the mutation-class immunology: null variants abolish the protein, so the
+    patient was never tolerised to the factor they are later infused with.
+    A model that survives this transfer has learned that mechanism; a model
+    that has memorised F8 collapses to chance.
+    """
+    data = data or prepare()
+    _log("Stage EXTERNAL -- transferring the F8 model onto CHBMP (F9)")
+
+    chbmp = load_chbmp()
+    lab_b, _ = split_by_label(chbmp)
+    yb = (lab_b["inhibitor"] == 1).astype(int).values
+
+    fz = data["featurizer"]
+    Xb = fz.transform(lab_b).values.astype(float)
+
+    artefact = MODELS / "final_model.joblib"
+    if not artefact.exists():
+        stage_final(data)
+    bundle = joblib.load(artefact)
+    p = bundle["model"].predict_proba(Xb)[:, 1]
+
+    out = {
+        "cohort": "CHBMP (CDC Hemophilia B Mutation Project, F9), 2022 release",
+        "label_summary": label_summary(chbmp),
+        "n_scored": int(len(yb)),
+        "n_events": int(yb.sum()),
+        "prevalence": round(float(yb.mean()), 4),
+        "metrics": compute_metrics(yb, p),
+        "auc_ci": bootstrap_ci(yb, p, "auc_roc"),
+        "note": ("Zero-shot transfer: no F9 patient was used at any point in "
+                 "training, feature fitting or threshold selection."),
+    }
+    _save("external", out)
+    return out
