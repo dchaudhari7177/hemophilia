@@ -215,3 +215,33 @@ def delong_test(y_true, prob_a, prob_b) -> dict:
         "z": round(float(z), 4),
         "p_value": round(float(2 * (1 - stats.norm.cdf(abs(z)))), 6),
     }
+
+
+# ---------------------------------------------------------------------------
+# Curves for plotting
+# ---------------------------------------------------------------------------
+def calibration_curve_points(y_true, y_prob, n_bins: int = 10):
+    y_true = np.asarray(y_true, dtype=float)
+    y_prob = np.asarray(y_prob, dtype=float)
+    edges = np.quantile(y_prob, np.linspace(0, 1, n_bins + 1))
+    edges = np.unique(edges)
+    xs, ys, ns = [], [], []
+    for lo, hi in zip(edges[:-1], edges[1:]):
+        m = (y_prob >= lo) & (y_prob <= hi)
+        if m.sum() < 5:
+            continue
+        xs.append(float(y_prob[m].mean()))
+        ys.append(float(y_true[m].mean()))
+        ns.append(int(m.sum()))
+    return np.array(xs), np.array(ys), np.array(ns)
+
+
+def decision_curve(y_true, y_prob, thresholds=None):
+    """Net benefit across threshold probabilities, plus treat-all/none refs."""
+    if thresholds is None:
+        thresholds = np.linspace(0.01, 0.60, 60)
+    y_true = np.asarray(y_true, dtype=float)
+    prev = y_true.mean()
+    model = [net_benefit(y_true, y_prob, t) for t in thresholds]
+    treat_all = [prev - (1 - prev) * (t / (1 - t)) for t in thresholds]
+    return np.asarray(thresholds), np.asarray(model), np.asarray(treat_all)
