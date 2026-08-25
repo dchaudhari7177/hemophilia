@@ -180,3 +180,42 @@ BLOSUM62 = {
 
 def blosum62(a: str, b: str) -> float:
     return float(BLOSUM62.get((a, b), float("nan")))
+
+
+# --------------------------------------------------------------------------
+# 4. Lookup helpers
+# --------------------------------------------------------------------------
+def domain_of(mature_pos: float | None) -> str:
+    """Return the FVIII domain containing a mature-numbering residue."""
+    if mature_pos is None or mature_pos != mature_pos:  # NaN check
+        return "Unknown"
+    if mature_pos < 1:
+        return "Signal"
+    for name, lo, hi in FVIII_DOMAINS:
+        if lo <= mature_pos <= hi:
+            return name
+    return "Unknown"
+
+
+def in_span(pos: float | None, lo: int, hi: int) -> int:
+    if pos is None or pos != pos:
+        return 0
+    return int(lo <= pos <= hi)
+
+
+def distance_to_span(pos: float | None, lo: int, hi: int) -> float:
+    """0 inside the span, otherwise residues to the nearest edge."""
+    if pos is None or pos != pos:
+        return float("nan")
+    if pos < lo:
+        return lo - pos
+    if pos > hi:
+        return pos - hi
+    return 0.0
+
+
+def nearest_epitope_distance(mature_pos: float | None) -> float:
+    if mature_pos is None or mature_pos != mature_pos:
+        return float("nan")
+    return min(distance_to_span(mature_pos, lo, hi)
+               for _, lo, hi in INHIBITOR_EPITOPES)
