@@ -448,3 +448,37 @@ python -m pytest
 Figures land in `reports/figures/`, measurements in `reports/*.json`, and this
 document is regenerated from them.
 """
+
+
+# ---------------------------------------------------------------------------
+# Assembly
+# ---------------------------------------------------------------------------
+def build() -> Path:
+    audit = _load("audit")
+    cv = _load("cv")
+    blocked = _load("blocked_cv")
+    tuning = _load("tuning")
+    final = _load("final")
+    external = _load("external")
+    ssl = _load("ssl")
+    quant = _load("quantisation")
+
+    parts = [
+        section_header(),
+        section_summary(audit, cv, final, external, ssl),
+        section_audit(audit),
+        section_features(quant),
+        section_models(cv, blocked, tuning),
+        section_final(final),
+        section_external(external),
+        section_ssl(ssl),
+        section_comparison(final, audit),
+        section_limitations(),
+    ]
+    OUT.write_text("\n".join(p for p in parts if p), encoding="utf-8")
+    print(f"  -> {OUT.relative_to(ROOT)}")
+    return OUT
+
+
+if __name__ == "__main__":
+    build()
