@@ -70,7 +70,7 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
 
     return {
         "ExtraTrees": (
-            ExtraTreesClassifier(class_weight="balanced", n_jobs=-1,
+            ExtraTreesClassifier(class_weight="balanced", n_jobs=1,
                                  random_state=random_state),
             {"clf__n_estimators": randint(300, 1200),
              "clf__min_samples_leaf": randint(1, 20),
@@ -79,7 +79,7 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
              "clf__criterion": ["gini", "entropy"]},
         ),
         "RandomForest": (
-            RandomForestClassifier(class_weight="balanced_subsample", n_jobs=-1,
+            RandomForestClassifier(class_weight="balanced_subsample", n_jobs=1,
                                    random_state=random_state),
             {"clf__n_estimators": randint(300, 1200),
              "clf__min_samples_leaf": randint(1, 20),
@@ -87,7 +87,7 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
              "clf__max_depth": [None, 8, 12, 20]},
         ),
         "LightGBM": (
-            lgb.LGBMClassifier(class_weight="balanced", n_jobs=-1, verbose=-1,
+            lgb.LGBMClassifier(class_weight="balanced", n_jobs=1, verbose=-1,
                                random_state=random_state),
             {"clf__n_estimators": randint(150, 900),
              "clf__learning_rate": loguniform(5e-3, 1e-1),
@@ -100,7 +100,7 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
              "clf__reg_alpha": loguniform(1e-3, 10)},
         ),
         "XGBoost": (
-            xgb.XGBClassifier(eval_metric="logloss", n_jobs=-1,
+            xgb.XGBClassifier(eval_metric="logloss", n_jobs=1,
                               random_state=random_state),
             {"clf__n_estimators": randint(150, 900),
              "clf__learning_rate": loguniform(5e-3, 1e-1),
@@ -112,11 +112,11 @@ def search_spaces(random_state: int = RANDOM_STATE) -> dict:
              "clf__scale_pos_weight": uniform(1, 5)},
         ),
         "LogisticRegression": (
-            LogisticRegression(penalty="elasticnet", solver="saga",
-                               max_iter=8000, class_weight="balanced",
+            LogisticRegression(solver="liblinear", max_iter=3000,
+                               class_weight="balanced",
                                random_state=random_state),
             {"clf__C": loguniform(1e-3, 10),
-             "clf__l1_ratio": uniform(0, 1)},
+             "clf__penalty": ["l1", "l2"]},
         ),
     }
 
@@ -130,6 +130,9 @@ def nested_search(X, y, name: str, estimator, space, n_iter: int = 40,
     """Tune on inner folds, score on untouched outer folds."""
     from sklearn.metrics import roc_auc_score
 
+    # The search fans out over folds and candidates; the estimators inside it
+    # are therefore configured single-threaded, or the two layers oversubscribe
+    # every core and the search runs slower than a serial one.
     outer = StratifiedKFold(outer_splits, shuffle=True, random_state=random_state)
     inner = StratifiedKFold(inner_splits, shuffle=True, random_state=random_state)
 
