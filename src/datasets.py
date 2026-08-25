@@ -115,3 +115,28 @@ def label_summary(df: pd.DataFrame) -> dict:
         "prevalence_if_unlabelled_called_negative":
             round(pos / len(df), 4) if len(df) else None,
     }
+
+
+# ---------------------------------------------------------------------------
+# Splitting strategies
+# ---------------------------------------------------------------------------
+def protein_region_blocks(df: pd.DataFrame, n_blocks: int = 10) -> np.ndarray:
+    """Assign each variant to a contiguous block of the FVIII coding sequence.
+
+    Used for *position-blocked* cross-validation. Ordinary stratified k-fold
+    lets the model see variants at, say, residue 490 in training and residue
+    491 in test -- neighbouring residues in the same epitope, which is closer
+    to interpolation than to prediction. Blocking by region forces the model to
+    generalise to a stretch of the protein it has never seen, which is the real
+    clinical situation when a novel variant is found.
+    """
+    from .hgvs_parser import parse_cdna
+
+    pos = np.array([parse_cdna(v).cdna_pos for v in df["HGVS cDNA"]], dtype=float)
+    filled = np.where(np.isnan(pos), np.nanmedian(pos), pos)
+    order = np.argsort(filled, kind="stable")
+    blocks = np.empty(len(df), dtype=int)
+    edges = np.array_split(order, n_blocks)
+    for b, idx in enumerate(edges):
+        blocks[idx] = b
+    return blocks
