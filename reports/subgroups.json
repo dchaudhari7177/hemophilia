@@ -1,0 +1,127 @@
+{
+  "threshold": 0.2034,
+  "note": "Strata with fewer than 10 events in either class are listed with their counts but no AUC, because an estimate from that few events would not be stable.",
+  "subgroups": [
+    {
+      "subgroup": "All patients",
+      "n": 460,
+      "events": 92,
+      "prevalence": 0.2,
+      "auc_roc": 0.7268,
+      "auc_ci": "0.662-0.784",
+      "sensitivity": 0.6413,
+      "specificity": 0.6413,
+      "note": ""
+    },
+    {
+      "subgroup": "Severe phenotype",
+      "n": 286,
+      "events": 74,
+      "prevalence": 0.2587,
+      "auc_roc": 0.6938,
+      "auc_ci": "0.623-0.760",
+      "sensitivity": 0.7838,
+      "specificity": 0.4104,
+      "note": ""
+    },
+    {
+      "subgroup": "Moderate phenotype",
+      "n": 59,
+      "events": 5,
+      "prevalence": 0.0847,
+      "auc_roc": NaN,
+      "auc_ci": null,
+      "sensitivity": NaN,
+      "specificity": NaN,
+      "note": "too few events (5) for a stable estimate"
+    },
+    {
+      "subgroup": "Mild phenotype",
+      "n": 89,
+      "events": 9,
+      "prevalence": 0.1011,
+      "auc_roc": NaN,
+      "auc_ci": null,
+      "sensitivity": NaN,
+      "specificity": NaN,
+      "note": "too few events (9) for a stable estimate"
+    },
+    {
+      "subgroup": "Null variants",
+      "n": 243,
+      "events": 72,
+      "prevalence": 0.2963,
+      "auc_roc": 0.6524,
+      "auc_ci": "0.573-0.726",
+      "sensitivity": 0.8194,
+      "specificity": 0.2281,
+      "note": ""
+    },
+    {
+      "subgroup": "Non-null variants",
+      "n": 217,
+      "events": 20,
+      "prevalence": 0.0922,
+      "auc_roc": 0.6156,
+      "auc_ci": "0.480-0.736",
+      "sensitivity": 0.0,
+      "specificity": 1.0,
+      "note": ""
+    },
+    {
+      "subgroup": "Missense only",
+      "n": 210,
+      "events": 19,
+      "prevalence": 0.0905,
+      "auc_roc": 0.656,
+      "auc_ci": "0.537-0.762",
+      "sensitivity": 0.0,
+      "specificity": 1.0,
+      "note": ""
+    },
+    {
+      "subgroup": "Truncating only",
+      "n": 177,
+      "events": 49,
+      "prevalence": 0.2768,
+      "auc_roc": 0.5408,
+      "auc_ci": "0.438-0.643",
+      "sensitivity": 0.7551,
+      "specificity": 0.2266,
+      "note": ""
+    },
+    {
+      "subgroup": "Large structural",
+      "n": 31,
+      "events": 19,
+      "prevalence": 0.6129,
+      "auc_roc": 0.8816,
+      "auc_ci": "0.732-0.983",
+      "sensitivity": 1.0,
+      "specificity": 0.0,
+      "note": ""
+    },
+    {
+      "subgroup": "Light chain",
+      "n": 157,
+      "events": 33,
+      "prevalence": 0.2102,
+      "auc_roc": 0.6926,
+      "auc_ci": "0.592-0.789",
+      "sensitivity": 0.5758,
+      "specificity": 0.7177,
+      "note": ""
+    },
+    {
+      "subgroup": "Heavy chain",
+      "n": 235,
+      "events": 37,
+      "prevalence": 0.1574,
+      "auc_roc": 0.6564,
+      "auc_ci": "0.559-0.738",
+      "sensitivity": 0.5135,
+      "specificity": 0.6768,
+      "note": ""
+    }
+  ]
+}

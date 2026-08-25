@@ -1,0 +1,111 @@
+{
+  "selected_model": "DeepMLP",
+  "n_train": 1836,
+  "n_test": 460,
+  "test_events": 92,
+  "thresholds": {
+    "youden_on_train_oof": 0.2034,
+    "sensitivity90_on_train_oof": 0.1055
+  },
+  "test_calibrated_youden": {
+    "n": 460,
+    "prevalence": 0.2,
+    "threshold": 0.2034,
+    "auc_roc": 0.7268,
+    "auc_pr": 0.48,
+    "auc_pr_baseline": 0.2,
+    "accuracy": 0.6435,
+    "balanced_accuracy": 0.6427,
+    "sensitivity": 0.6413,
+    "specificity": 0.644,
+    "precision": 0.3105,
+    "npv": 0.8778,
+    "f1": 0.4184,
+    "mcc": 0.2318,
+    "brier": 0.1355,
+    "ece": 0.0431,
+    "net_benefit_at_10pct": 0.1208,
+    "net_benefit_at_20pct": 0.056,
+    "tp": 59,
+    "tn": 237,
+    "fp": 131,
+    "fn": 33
+  },
+  "test_calibrated_sens90": {
+    "n": 460,
+    "prevalence": 0.2,
+    "threshold": 0.1055,
+    "auc_roc": 0.7268,
+    "auc_pr": 0.48,
+    "auc_pr_baseline": 0.2,
+    "accuracy": 0.4826,
+    "balanced_accuracy": 0.6277,
+    "sensitivity": 0.8696,
+    "specificity": 0.3859,
+    "precision": 0.2614,
+    "npv": 0.9221,
+    "f1": 0.402,
+    "mcc": 0.2165,
+    "brier": 0.1355,
+    "ece": 0.0431,
+    "net_benefit_at_10pct": 0.1208,
+    "net_benefit_at_20pct": 0.056,
+    "tp": 80,
+    "tn": 142,
+    "fp": 226,
+    "fn": 12
+  },
+  "test_uncalibrated_youden": {
+    "n": 460,
+    "prevalence": 0.2,
+    "threshold": 0.612,
+    "auc_roc": 0.7229,
+    "auc_pr": 0.4881,
+    "auc_pr_baseline": 0.2,
+    "accuracy": 0.6196,
+    "balanced_accuracy": 0.6359,
+    "sensitivity": 0.663,
+    "specificity": 0.6087,
+    "precision": 0.2976,
+    "npv": 0.8784,
+    "f1": 0.4108,
+    "mcc": 0.2187,
+    "brier": 0.2539,
+    "ece": 0.2719,
+    "net_benefit_at_10pct": 0.1111,
+    "net_benefit_at_20pct": 0.0511,
+    "tp": 61,
+    "tn": 224,
+    "fp": 144,
+    "fn": 31
+  },
+  "threshold_scale_check": {
+    "youden_on_calibrated_oof": 0.2034,
+    "youden_on_raw_oof": 0.612,
+    "note": "Both thresholds target the same operating point but live on different probability scales. Applying the raw-scale cut-off to calibrated probabilities is a scale mismatch, not a conservative choice."
+  },
+  "auc_ci": {
+    "point": 0.7268,
+    "lo": 0.6675,
+    "hi": 0.7847,
+    "n_boot": 2000
+  },
+  "auc_pr_ci": {
+    "point": 0.48,
+    "lo": 0.3987,
+    "hi": 0.5709,
+    "n_boot": 2000
+  },
+  "sensitivity_ci": {
+    "point": 0.6413,
+    "lo": 0.4239,
+    "hi": 0.9239,
+    "n_boot": 2000
+  },
+  "calibration_effect": {
+    "brier_uncalibrated": 0.2539,
+    "brier_calibrated": 0.1355,
+    "ece_uncalibrated": 0.2719,
+    "ece_calibrated": 0.0431
+  }
+}

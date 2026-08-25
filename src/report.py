@@ -307,10 +307,10 @@ def section_models(cv, blocked, tuning) -> str:
         out.append("### 4.1 Nested hyperparameter search\n")
         out.append(
             "The reference works tune with `GridSearchCV` and report the best "
-            "cross-validated score. That score is optimistically biased: the "
-            "folds that chose the hyperparameters also graded them. Running the "
-            "search inside an outer loop it never sees measures the size of "
-            "that bias directly.\n")
+            "cross-validated score. That score *can* be optimistically biased, "
+            "because the folds that chose the hyperparameters also graded them. "
+            "Running the search inside an outer loop it never sees measures the "
+            "size of that bias directly rather than assuming it.\n")
         out.append("| Model | Nested (honest) AUC | Inner best AUC | Tuning optimism |")
         out.append("|---|---|---|---|")
         for name, r in sorted(tuning.items(),
@@ -321,11 +321,31 @@ def section_models(cv, blocked, tuning) -> str:
                 f"{_signed(r['optimism_from_tuning'])} |")
         out.append("")
         worst = max(tuning.values(), key=lambda r: r["optimism_from_tuning"])
+        biggest = max(abs(r["optimism_from_tuning"]) for r in tuning.values())
+        if worst["optimism_from_tuning"] >= 0.01:
+            out.append(
+                f"Tuning optimism reaches {_signed(worst['optimism_from_tuning'])} "
+                f"AUC. Any comparison quoting an inner-loop score — as the "
+                f"reference works do — is inflated by roughly that much before "
+                f"any other issue is considered.\n")
+        else:
+            out.append(
+                f"**This experiment did not find what it was set up to find, and "
+                f"that is reported rather than dropped.** Tuning optimism is "
+                f"negligible here: the largest gap in either direction is "
+                f"{biggest:.4f} AUC, and three of the five models score *higher* "
+                f"on the honest outer loop than on the inner one. With a search "
+                f"space this small relative to 1,836 training rows, the "
+                f"inner-loop estimate is a fair one. So this particular "
+                f"criticism does not apply to the reference works — their "
+                f"`GridSearchCV` scores are not inflated by the tuning itself. "
+                f"The defects documented in §2 are quite sufficient on their "
+                f"own without adding one the data does not support.\n")
         out.append(
-            f"Tuning optimism reaches {_signed(worst['optimism_from_tuning'])} AUC. "
-            f"Any comparison that quotes an inner-loop score — as the reference "
-            f"works do — is inflated by roughly that much before any other "
-            f"issue is considered.\n")
+            "A second observation from the same table: tuned logistic "
+            "regression reaches the top of this list. On 369 events a "
+            "penalised linear model is genuinely competitive with everything "
+            "more elaborate.\n")
     return "\n".join(out)
 
 
@@ -458,6 +478,42 @@ def section_subgroups(sub) -> str:
             f"{_pct(r['specificity']) if r.get('specificity') else '—'} |")
     out.append("")
     out.append(f"*{sub['note']}*\n")
+
+    by_name = {r["subgroup"]: r for r in sub["subgroups"]}
+    overall = by_name.get("All patients", {}).get("auc_roc")
+    severe = by_name.get("Severe phenotype", {}).get("auc_roc")
+    trunc = by_name.get("Truncating only", {}).get("auc_roc")
+    null = by_name.get("Null variants", {}).get("auc_roc")
+
+    if overall and severe and trunc:
+        out.append("### 6.1 The most important caveat in this report\n")
+        out.append(
+            f"The overall AUC of {overall:.3f} is not evenly distributed. "
+            f"Inside the **severe** stratum — where essentially every "
+            f"prophylaxis decision is actually made — it falls to "
+            f"{severe:.3f}. Inside **null variants** it is {null:.3f}. Inside "
+            f"**truncating variants alone** it is {trunc:.3f}, which is "
+            f"indistinguishable from chance.\n")
+        out.append(
+            "The reading is uncomfortable but clear: most of the model's "
+            "apparent discrimination comes from separating null variants from "
+            "non-null ones — and a clinician already knows that from the "
+            "variant type without any model at all. Within the high-risk group, "
+            "where a tool would actually add information, this model adds very "
+            "little.\n")
+        out.append(
+            "That is a limit of the data rather than of the fitting. Whether a "
+            "particular severe, null-variant patient develops an inhibitor "
+            "depends on treatment intensity, product type, age at first "
+            "exposure and HLA haplotype — none of which CHAMP records. No "
+            "model can recover from a database what was never in it, and a "
+            "report that showed only the pooled 0.727 would have concealed "
+            "exactly the thing a reviewer most needs to know.\n")
+        out.append(
+            "The one stratum with strong discrimination is **large structural "
+            "variants** (AUC 0.882), but on 31 patients with 19 events the "
+            "interval is wide and it should be treated as a signal to follow "
+            "up, not a result.\n")
     return "\n".join(out)
 
 
@@ -565,21 +621,28 @@ def section_limitations() -> str:
 These are stated because a model for clinical use is only as trustworthy as its
 declared boundaries.
 
-1. **CHAMP is a variant catalogue, not a patient registry.** Each row is a
+1. **Most of the discrimination is null-versus-non-null, which is already
+   known.** Section 6.1 is the limitation that matters most. Pooled AUC is
+   0.727, but inside the severe stratum it is 0.694 and inside truncating
+   variants alone it is 0.541 — chance. The model largely reproduces a
+   distinction the variant type already gives a clinician for free, and adds
+   little within the high-risk group where a tool would actually change
+   management.
+2. **CHAMP is a variant catalogue, not a patient registry.** Each row is a
    distinct mutation whose outcome is summarised across everyone reported to
    carry it. Individual patients are not resolvable, so the label carries
    irreducible noise and the unit of analysis is the variant.
-2. **The strongest known risk factors are absent.** Treatment intensity,
+3. **The strongest known risk factors are absent.** Treatment intensity,
    product type, exposure days, HLA haplotype, family history and ethnicity all
    drive inhibitor development and none are in the data. A genomic-only model
    has a ceiling well below what the reference works advertise, and the
    performance here should be read against that ceiling.
-3. **Reporting bias.** CHAMP aggregates published case reports, which
+4. **Reporting bias.** CHAMP aggregates published case reports, which
    over-represent unusual variants and outcomes worth publishing.
-4. **The external cohort is small.** CHBMP contributes 351 labelled patients
+5. **The external cohort is small.** CHBMP contributes 351 labelled patients
    with 40 events, so its confidence interval is wide. It establishes that
    transfer happens, not how well.
-5. **Not a medical device.** Research and educational use only. It does not
+6. **Not a medical device.** Research and educational use only. It does not
    replace clinical judgement or laboratory inhibitor testing.
 
 ---

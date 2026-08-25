@@ -1,0 +1,32 @@
+[02:34:35] SELECTION: DeepMLP  (repeated-CV winner was ExtraTrees; changed = True)
+[02:34:35]   tier: ['ExtraTrees', 'RandomForest', 'StackedEnsemble', 'WeightedAverageEnsemble', 'DeepMLP', 'BioBlockAttention', 'ElasticNetLR']
+[02:34:35]   blocked AUC within tier: {'DeepMLP': 0.7167, 'BioBlockAttention': 0.7094, 'RandomForest': 0.7057, 'ExtraTrees': 0.7009, 'ElasticNetLR': 0.6967}
+[02:34:38] refitting the final model on the selected estimator
+[02:34:38] Stage FINAL -- selected model: DeepMLP
+  -> reports\final.json
+[02:43:43] Stage SUBGROUPS -- per-stratum performance on the held-out test set
+[02:46:28]   All patients           n= 460 events= 92 AUC=0.7268
+[02:46:28]   Severe phenotype       n= 286 events= 74 AUC=0.6938
+[02:46:28]   Moderate phenotype     n=  59 events=  5 AUC=nan
+[02:46:28]   Mild phenotype         n=  89 events=  9 AUC=nan
+[02:46:28]   Null variants          n= 243 events= 72 AUC=0.6524
+[02:46:28]   Non-null variants      n= 217 events= 20 AUC=0.6156
+[02:46:28]   Missense only          n= 210 events= 19 AUC=0.656
+[02:46:28]   Truncating only        n= 177 events= 49 AUC=0.5408
+[02:46:28]   Large structural       n=  31 events= 19 AUC=0.8816
+[02:46:28]   Light chain            n= 157 events= 33 AUC=0.6926
+[02:46:28]   Heavy chain            n= 235 events= 37 AUC=0.6564
+  -> reports\subgroups.json
+[02:46:28] Stage SSL -- missingness probe and self-training
+  -> reports\ssl.json
+[02:47:18] Stage EXTERNAL -- transferring the F8 model onto CHBMP (F9)
+  -> reports\external.json
+[02:47:54] rebuilding figures
+  -> reports\figures\01_leakage_audit.png
+  -> reports\figures\02_model_comparison.png
+  -> reports\figures\03_performance_panel.png
+  -> reports\figures\04_cohort_biology.png
+  -> reports\figures\06_external_validation.png
+[02:47:56] rebuilding RESULTS.md
+  -> RESULTS.md
+[02:47:56] FINALISE COMPLETE

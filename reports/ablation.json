@@ -1,0 +1,129 @@
+{
+  "protocol": "StratifiedKFold(5) on the training split, ExtraTrees",
+  "signal_decomposition": {
+    "null-mutation flag alone": {
+      "n_features": 1,
+      "auc": 0.6481
+    },
+    "variant type only": {
+      "n_features": 9,
+      "auc": 0.6778
+    },
+    "clinical severity only": {
+      "n_features": 8,
+      "auc": 0.6391
+    },
+    "variant type + severity": {
+      "n_features": 17,
+      "auc": 0.6985
+    },
+    "all features": {
+      "n_features": 135,
+      "auc": 0.7372
+    },
+    "block: consequence": {
+      "n_features": 25,
+      "auc": 0.6888
+    },
+    "block: position": {
+      "n_features": 40,
+      "auc": 0.6449
+    },
+    "block: truncation": {
+      "n_features": 16,
+      "auc": 0.5635
+    },
+    "block: chemistry": {
+      "n_features": 15,
+      "auc": 0.5934
+    },
+    "block: nucleotide": {
+      "n_features": 14,
+      "auc": 0.6592
+    },
+    "block: splicing": {
+      "n_features": 9,
+      "auc": 0.5655
+    },
+    "block: clinical": {
+      "n_features": 16,
+      "auc": 0.6918
+    },
+    "_lift_over_variant_type_and_severity": 0.0387
+  },
+  "leave_one_block_out": {
+    "full_auc": 0.7372,
+    "blocks": {
+      "clinical": {
+        "n_removed": 16,
+        "auc_without": 0.7226,
+        "cost_of_removal": 0.0145
+      },
+      "chemistry": {
+        "n_removed": 15,
+        "auc_without": 0.7283,
+        "cost_of_removal": 0.0088
+      },
+      "nucleotide": {
+        "n_removed": 14,
+        "auc_without": 0.7326,
+        "cost_of_removal": 0.0046
+      },
+      "splicing": {
+        "n_removed": 9,
+        "auc_without": 0.7344,
+        "cost_of_removal": 0.0028
+      },
+      "position": {
+        "n_removed": 40,
+        "auc_without": 0.7346,
+        "cost_of_removal": 0.0026
+      },
+      "consequence": {
+        "n_removed": 25,
+        "auc_without": 0.7356,
+        "cost_of_removal": 0.0016
+      },
+      "truncation": {
+        "n_removed": 16,
+        "auc_without": 0.7358,
+        "cost_of_removal": 0.0014
+      }
+    }
+  },
+  "feature_count_sweep": {
+    "ranking_top_20": [
+      "is_null_mutation",
+      "null_and_severe",
+      "vtype_missense",
+      "severity_mild",
+      "severity_severe",
+      "mech_deletion",
+      "severity_ordinal",
+      "cdna_pos_norm",
+      "mech_substitution",
+      "exon_norm",
+      "exon_number",
+      "nearest_epitope_dist",
+      "is_large_event",
+      "fviii_severe",
+      "fviii_mild",
+      "blosum62",
+      "is_multi_exon",
+      "alt_nt_A",
+      "mature_pos",
+      "mature_pos_norm"
+    ],
+    "sweep": {
+      "10": 0.7125,
+      "20": 0.7329,
+      "30": 0.7372,
+      "50": 0.7352,
+      "80": 0.7356,
+      "110": 0.7373,
+      "all": 0.7362
+    },
+    "best_k": "110",
+    "best_auc": 0.7373
+  }
+}

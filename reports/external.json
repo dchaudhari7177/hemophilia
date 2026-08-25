@@ -1,0 +1,47 @@
+{
+  "cohort": "CHBMP (CDC Hemophilia B Mutation Project, F9), 2022 release",
+  "label_summary": {
+    "n_total": 1399,
+    "n_positive": 40,
+    "n_negative": 311,
+    "n_unlabelled": 1048,
+    "n_labelled": 351,
+    "prevalence_labelled": 0.114,
+    "prevalence_if_unlabelled_called_negative": 0.0286
+  },
+  "n_scored": 351,
+  "n_events": 40,
+  "prevalence": 0.114,
+  "metrics": {
+    "n": 351,
+    "prevalence": 0.114,
+    "threshold": 0.106,
+    "auc_roc": 0.7504,
+    "auc_pr": 0.4094,
+    "auc_pr_baseline": 0.114,
+    "accuracy": 0.5499,
+    "balanced_accuracy": 0.6915,
+    "sensitivity": 0.875,
+    "specificity": 0.508,
+    "precision": 0.1862,
+    "npv": 0.9693,
+    "f1": 0.307,
+    "mcc": 0.2441,
+    "brier": 0.0856,
+    "ece": 0.047,
+    "net_benefit_at_10pct": 0.0513,
+    "net_benefit_at_20pct": 0.0157,
+    "tp": 35,
+    "tn": 158,
+    "fp": 153,
+    "fn": 5
+  },
+  "auc_ci": {
+    "point": 0.7504,
+    "lo": 0.6709,
+    "hi": 0.8237,
+    "n_boot": 2000
+  },
+  "note": "Zero-shot transfer: no F9 patient was used at any point in training, feature fitting or threshold selection.",
+  "caveat": "The positional features are computed with FVIII coordinates. Factor IX is a 415-residue mature protein against FVIII's 2,332, so every F9 variant lands in the low-numbered bins and the domain, epitope-distance and truncation-extent features carry no real information here -- they are near-constant across the cohort and therefore contribute almost nothing to the ranking. What is being tested is whether the *consequence-class* signal (null vs missense, truncating vs in-frame, splice disruption) plus clinical severity transfers across genes. That is the intended test, and it is the part of the model that should be gene-agnostic; but the result should not be read as evidence that the FVIII structural features generalise."
+}
