@@ -44,9 +44,16 @@ def shap_values(pipeline, X: np.ndarray, feature_names: list[str],
     """
     import shap
 
-    prep = pipeline.named_steps["prep"]
-    clf = pipeline.named_steps["clf"]
-    Xt = prep.transform(X)
+    # The selected model may be a Pipeline(prep, clf) or a bare estimator such
+    # as an ensemble that does its own preprocessing. Handle both rather than
+    # assuming the shape.
+    steps = getattr(pipeline, "named_steps", None)
+    if steps and "prep" in steps and "clf" in steps:
+        clf = steps["clf"]
+        Xt = steps["prep"].transform(X)
+    else:
+        clf = pipeline
+        Xt = np.nan_to_num(np.asarray(X, dtype=float), nan=0.0)
     if len(Xt) > max_rows:
         rng = np.random.default_rng(random_state)
         Xt = Xt[rng.choice(len(Xt), max_rows, replace=False)]

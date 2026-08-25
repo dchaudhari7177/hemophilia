@@ -87,9 +87,21 @@ class InhibitorRiskModel:
 
         df = self._frame([record])
         X = self.featurizer.transform(df).values.astype(float)
-        inner = self.model.calibrated_classifiers_[0].estimator
-        vals, Xt = shap_values(inner, X, self.feature_names, max_rows=1)
+        vals, Xt = shap_values(self._base_estimator(), X, self.feature_names,
+                               max_rows=1)
         return explain_patient(vals, Xt, self.feature_names, 0, top=top)
+
+    def _base_estimator(self):
+        """The uncalibrated estimator underneath the calibration wrapper.
+
+        SHAP explains the model that produces the score, so it is pointed at
+        the base learner rather than the isotonic wrapper; calibration is a
+        monotone transform and does not change the ranking of contributions.
+        """
+        cal = getattr(self.model, "calibrated_classifiers_", None)
+        if cal:
+            return getattr(cal[0], "estimator", self.model)
+        return self.model
 
 
 def score_dataframe(df: pd.DataFrame, artefact: Path | str = ARTEFACT) -> pd.DataFrame:
