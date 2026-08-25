@@ -314,6 +314,31 @@ def section_final(final) -> str:
     return "\n".join(out)
 
 
+def section_subgroups(sub) -> str:
+    if not sub:
+        return ""
+    out = ["## 6. Does it work where it would be used?\n"]
+    out.append(
+        "Inhibitor prophylaxis decisions are made almost entirely in **severe** "
+        "hemophilia A. A model with a respectable overall AUC that sits at "
+        "chance inside the severe stratum would be useless in clinic, and the "
+        "overall number would never reveal it. Neither reference work reports "
+        "subgroup performance.\n")
+    out.append("| Subgroup | n | Events | Prevalence | AUC-ROC (95% CI) | Sens. | Spec. |")
+    out.append("|---|---|---|---|---|---|---|")
+    for r in sub["subgroups"]:
+        auc = (f"{r['auc_roc']:.3f} ({r['auc_ci']})"
+               if r.get("auc_roc") else f"— *{r.get('note', '')}*")
+        out.append(
+            f"| {r['subgroup']} | {r['n']} | {r['events']} | "
+            f"{_pct(r['prevalence'])} | {auc} | "
+            f"{_pct(r['sensitivity']) if r.get('sensitivity') else '—'} | "
+            f"{_pct(r['specificity']) if r.get('specificity') else '—'} |")
+    out.append("")
+    out.append(f"*{sub['note']}*\n")
+    return "\n".join(out)
+
+
 def section_external(external) -> str:
     if not external:
         return ""
@@ -411,7 +436,7 @@ def section_comparison(final, audit) -> str:
 
 
 def section_limitations() -> str:
-    return """## 9. Limitations
+    return """## 10. Limitations
 
 These are stated because a model for clinical use is only as trustworthy as its
 declared boundaries.
@@ -435,7 +460,7 @@ declared boundaries.
 
 ---
 
-## 10. Reproducing this document
+## 11. Reproducing this document
 
 ```bash
 python scripts/fetch_data.py
@@ -461,6 +486,7 @@ def build() -> Path:
     final = _load("final")
     external = _load("external")
     ssl = _load("ssl")
+    sub = _load("subgroups")
     quant = _load("quantisation")
 
     parts = [
@@ -470,6 +496,7 @@ def build() -> Path:
         section_features(quant),
         section_models(cv, blocked, tuning),
         section_final(final),
+        section_subgroups(sub),
         section_external(external),
         section_ssl(ssl),
         section_comparison(final, audit),
