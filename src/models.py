@@ -355,15 +355,50 @@ def classical_models(random_state: int = RANDOM_STATE) -> dict:
     }
 
 
+class ArchitectureBuilder:
+    """Picklable factory for a torch architecture.
+
+    ``TorchClassifier`` needs a callable that turns a feature count into a
+    module. A lambda is the obvious choice and works fine until the fitted model
+    is saved -- pickle cannot serialise a closure defined inside a function, so
+    ``joblib.dump`` fails at the very end of training. A small callable class
+    does the same job and survives the round trip.
+    """
+
+    def __init__(self, cls, **kwargs):
+        self.cls = cls
+        self.kwargs = kwargs
+
+    def __call__(self, n_features: int):
+        return self.cls(n_features, **self.kwargs)
+
+    def __repr__(self) -> str:
+        return f"ArchitectureBuilder({self.cls.__name__})"
+
+
+class BlockArchitectureBuilder:
+    """Factory for architectures parameterised by feature blocks, not width."""
+
+    def __init__(self, block_indices: dict[str, list[int]], **kwargs):
+        self.block_indices = block_indices
+        self.kwargs = kwargs
+
+    def __call__(self, _n_features: int):
+        return BioBlockAttentionNet(self.block_indices, **self.kwargs)
+
+    def __repr__(self) -> str:
+        return "BlockArchitectureBuilder(BioBlockAttentionNet)"
+
+
 def neural_models(block_indices: dict[str, list[int]],
                   random_state: int = RANDOM_STATE) -> dict:
     """The four reference architectures plus this project's attention network."""
     return {
         "DeepMLP": TorchClassifier(
-            builder=lambda n: DeepMLP(n), epochs=200, lr=1e-3,
+            builder=ArchitectureBuilder(DeepMLP), epochs=200, lr=1e-3,
             random_state=random_state),
         "ResidualMLP": TorchClassifier(
-            builder=lambda n: ResidualMLP(n), epochs=200, lr=1e-3,
+            builder=ArchitectureBuilder(ResidualMLP), epochs=200, lr=1e-3,
             random_state=random_state),
         # The convolutional and attention arms cost 20-40x a plain MLP per
         # fold on this feature count, and neither is competitive here (see
@@ -372,14 +407,14 @@ def neural_models(block_indices: dict[str, list[int]],
         # scores should be read as "not competitive even so", not as a tuned
         # ceiling for those architectures.
         "CNN1D": TorchClassifier(
-            builder=lambda n: MultiScaleCNN1D(n, channels=16), epochs=80,
+            builder=ArchitectureBuilder(MultiScaleCNN1D, channels=16), epochs=80,
             batch_size=128, lr=2e-3, patience=15, random_state=random_state),
         "TabTransformer": TorchClassifier(
-            builder=lambda n: TabTransformer(n, d_model=16, n_layers=1),
+            builder=ArchitectureBuilder(TabTransformer, d_model=16, n_layers=1),
             epochs=80, batch_size=128, lr=1e-3, patience=15,
             random_state=random_state),
         "BioBlockAttention": TorchClassifier(
-            builder=lambda n: BioBlockAttentionNet(block_indices),
+            builder=BlockArchitectureBuilder(block_indices),
             epochs=250, lr=1e-3, batch_size=64, random_state=random_state),
     }
 
