@@ -127,3 +127,20 @@ def rank_agreement(a: pd.DataFrame, b: pd.DataFrame, key: str = "block") -> dict
     rho, p = spearmanr(merged["rank_a"], merged["rank_b"])
     return {"n": int(len(merged)), "spearman": round(float(rho), 4),
             "p_value": round(float(p), 5)}
+
+
+# ---------------------------------------------------------------------------
+# Per-patient explanation
+# ---------------------------------------------------------------------------
+def explain_patient(vals: np.ndarray, Xt: np.ndarray, feature_names: list[str],
+                    row: int, top: int = 8) -> pd.DataFrame:
+    """Ranked drivers for one patient, with the direction of each effect."""
+    v = vals[row]
+    order = np.argsort(-np.abs(v))[:top]
+    return pd.DataFrame({
+        "feature": [feature_names[i] for i in order],
+        "value": [float(Xt[row, i]) for i in order],
+        "shap": [float(v[i]) for i in order],
+        "direction": ["increases risk" if v[i] > 0 else "decreases risk"
+                      for i in order],
+    })
