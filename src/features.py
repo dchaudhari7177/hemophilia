@@ -148,3 +148,38 @@ def parse_exon_last(s) -> float:
     t = _norm(s)
     nums = re.findall(r"\d+", t)
     return float(nums[-1]) if nums else np.nan
+
+
+# ---------------------------------------------------------------------------
+# Exon map, derived from coordinates only (never from labels)
+# ---------------------------------------------------------------------------
+def build_exon_map(df: pd.DataFrame, cdna_col: str, exon_col: str) -> pd.DataFrame:
+    """Empirical cDNA span of each exon.
+
+    Rather than hard-coding RefSeq coordinates (and risking a transcription
+    error), we recover each exon's cDNA interval from the coordinates already
+    present in the variant table. This uses only X, never y, so it is safe to
+    compute on the full table.
+    """
+    rows = []
+    for cdna, exon in zip(df[cdna_col], df[exon_col]):
+        c = parse_cdna(cdna)
+        e = parse_exon(exon)
+        if math.isnan(e) or math.isnan(c.cdna_pos) or c.is_intronic or c.unknown_breakpoint:
+            continue
+        if parse_exon_last(exon) != e:      # multi-exon event, no clean anchor
+            continue
+        rows.append((e, c.cdna_pos))
+    if not rows:
+        return pd.DataFrame(columns=["exon", "start", "end", "length"])
+    t = pd.DataFrame(rows, columns=["exon", "pos"])
+    # Robust bounds: a handful of rows carry unconventional notation whose
+    # first coordinate lands far outside the exon, so trim to the inner 90%
+    # before taking the span.
+    g = (t.groupby("exon")["pos"]
+           .agg(start=lambda v: v.quantile(0.05),
+                end=lambda v: v.quantile(0.95),
+                n_obs="count")
+           .reset_index())
+    g["length"] = (g["end"] - g["start"] + 1).clip(lower=1)
+    return g
