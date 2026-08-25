@@ -386,6 +386,8 @@ def section_selection(sel) -> str:
             f"Choosing the other way round would have meant picking the "
             f"protocol that flattered the number — the kind of choice §2 of this "
             f"report exists to call out.\n")
+    if sel.get("disclosure"):
+        out.append(f"> **Disclosure.** {sel['disclosure']}\n")
     return "\n".join(out)
 
 
