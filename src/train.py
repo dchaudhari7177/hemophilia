@@ -97,10 +97,14 @@ def prepare(seed: int = RANDOM_STATE):
     }
 
 
-def all_models(blocks, include_neural: bool = True) -> dict:
+def all_models(blocks, include_neural: bool = True,
+               include_ensembles: bool = True) -> dict:
     zoo = dict(classical_models())
     if include_neural:
         zoo.update(neural_models(blocks))
+    if include_ensembles:
+        from .ensemble import build_ensembles
+        zoo.update(build_ensembles(zoo))
     return zoo
 
 
@@ -185,7 +189,8 @@ def stage_cv(data=None, include_neural: bool = True) -> dict:
 # ---------------------------------------------------------------------------
 # Stage: position-blocked cross-validation
 # ---------------------------------------------------------------------------
-def stage_blocked(data=None, include_neural: bool = True) -> dict:
+def stage_blocked(data=None, include_neural: bool = True,
+                  include_ensembles: bool = False) -> dict:
     """Hold out contiguous stretches of the gene.
 
     Standard k-fold can place a variant at residue 490 in training and residue
@@ -200,7 +205,7 @@ def stage_blocked(data=None, include_neural: bool = True) -> dict:
     data = data or prepare()
     X, y = data["X"], data["y"]
     groups = protein_region_blocks(data["labelled"], n_blocks=10)
-    zoo = all_models(data["blocks"], include_neural)
+    zoo = all_models(data["blocks"], include_neural, include_ensembles)
 
     _log(f"Stage BLOCKED -- GroupKFold over 10 genomic regions")
     gkf = GroupKFold(n_splits=5)
