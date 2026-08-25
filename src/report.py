@@ -358,6 +358,8 @@ def section_external(external) -> str:
         "that survives this transfer has learned that mechanism; a model that "
         "memorised F8 collapses to chance. No reference work attempts this "
         "test.\n")
+    if external.get("caveat"):
+        out.append(f"> **What this does and does not show.** {external['caveat']}\n")
     out.append("| Metric | Value |")
     out.append("|---|---|")
     out.append(f"| AUC-ROC (95% CI) | {_ci(external.get('auc_ci'))} |")
