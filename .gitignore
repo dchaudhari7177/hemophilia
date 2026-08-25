@@ -9,6 +9,10 @@ __pycache__/
 # large binaries kept out of history
 *.xlsx
 
+# transient run log; the JSON artefacts in reports/ are the record
+reports/_*.log
+reports/run.log
+
 # OS
 Thumbs.db
 .DS_Store
