@@ -342,7 +342,7 @@ def section_subgroups(sub) -> str:
 def section_external(external) -> str:
     if not external:
         return ""
-    out = ["## 6. External validation: zero-shot transfer to hemophilia B\n"]
+    out = ["## 7. External validation: zero-shot transfer to hemophilia B\n"]
     m = external["metrics"]
     out.append(
         f"The F8 model is applied unchanged to {external['n_scored']} "
@@ -376,7 +376,7 @@ def section_ssl(ssl) -> str:
     p = ssl["reporting_bias_probe"]
     u = ssl["unlabelled_risk_profile"]
     d = ssl["delong_ssl_vs_supervised"]
-    out = ["## 7. The 1,744 unrecorded outcomes\n"]
+    out = ["## 8. The 1,744 unrecorded outcomes\n"]
     out.append(
         f"**Is the missingness informative?** A classifier trained to predict "
         f"*whether* a variant's inhibitor status was recorded reaches AUC "
@@ -403,7 +403,7 @@ def section_ssl(ssl) -> str:
 
 
 def section_comparison(final, audit) -> str:
-    out = ["## 8. Comparison with the reference works\n"]
+    out = ["## 9. Comparison with the reference works\n"]
     out.append(
         "Comparing raw accuracy across different label definitions and "
         "different splitting protocols is meaningless, so the table below "
