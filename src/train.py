@@ -115,3 +115,68 @@ def stage_audit() -> dict:
     res["_label_summary"] = label_summary(champ)
     _save("audit", res)
     return res
+
+
+# ---------------------------------------------------------------------------
+# Stage: repeated stratified cross-validation
+# ---------------------------------------------------------------------------
+def _cv_scores(model, X, y, cv, name: str) -> dict:
+    oof_by_repeat: list[np.ndarray] = []
+    fold_aucs: list[float] = []
+    oof = np.full(len(y), np.nan)
+    seen = np.zeros(len(y), dtype=int)
+    acc = np.zeros(len(y), dtype=float)
+
+    for fold, (tr, te) in enumerate(cv.split(X, y)):
+        pipe = build_pipeline(model)
+        pipe.fit(X[tr], y[tr])
+        p = pipe.predict_proba(X[te])[:, 1]
+        acc[te] += p
+        seen[te] += 1
+        from sklearn.metrics import roc_auc_score
+        fold_aucs.append(float(roc_auc_score(y[te], p)))
+
+    oof = acc / np.maximum(seen, 1)
+    m = compute_metrics(y, oof)
+    return {
+        "model": name,
+        "cv_auc_mean": round(float(np.mean(fold_aucs)), 4),
+        "cv_auc_std": round(float(np.std(fold_aucs)), 4),
+        "cv_auc_folds": [round(a, 4) for a in fold_aucs],
+        "oof_metrics": m,
+        "_oof": oof,
+    }
+
+
+def stage_cv(data=None, include_neural: bool = True) -> dict:
+    data = data or prepare()
+    X, y = data["X"], data["y"]
+    tr = data["train_idx"]
+    Xtr, ytr = X[tr], y[tr]
+
+    cv = RepeatedStratifiedKFold(n_splits=N_SPLITS, n_repeats=N_REPEATS,
+                                 random_state=RANDOM_STATE)
+    zoo = all_models(data["blocks"], include_neural)
+
+    _log(f"Stage CV -- {len(zoo)} models, {N_SPLITS}x{N_REPEATS} CV "
+         f"on {len(ytr)} patients ({ytr.sum()} events)")
+
+    results, oofs = {}, {}
+    for name, model in zoo.items():
+        t0 = time.time()
+        r = _cv_scores(model, Xtr, ytr, cv, name)
+        oofs[name] = r.pop("_oof")
+        r["fit_seconds"] = round(time.time() - t0, 1)
+        results[name] = r
+        _log(f"  {name:20s} AUC {r['cv_auc_mean']:.4f} "
+             f"+/- {r['cv_auc_std']:.4f}   ({r['fit_seconds']}s)")
+
+    np.savez(REPORTS / "cv_oof.npz", y=ytr, **oofs)
+    ranked = sorted(results.values(), key=lambda r: -r["cv_auc_mean"])
+    out = {"n_train": int(len(ytr)), "n_events": int(ytr.sum()),
+           "n_features": int(X.shape[1]),
+           "protocol": f"RepeatedStratifiedKFold({N_SPLITS}x{N_REPEATS})",
+           "ranking": [r["model"] for r in ranked],
+           "models": results}
+    _save("cv", out)
+    return out
