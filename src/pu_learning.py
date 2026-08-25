@@ -85,9 +85,18 @@ class ElkanNotoPU(BaseEstimator, ClassifierMixin):
     def fit(self, X, y):                       # sklearn compatibility
         return self.fit_pu(X, y, np.empty((0, np.asarray(X).shape[1])))
 
+    def decision_function(self, X):
+        """Uncapped posterior estimate ``P(s=1|x) / c``.
+
+        ``predict_proba`` has to clip this into [0, 1] to be a probability, and
+        that clipping ties together every row the stage-1 model scores above
+        ``c`` -- which destroys the ranking AUC depends on. Ranking metrics
+        should therefore read this method instead.
+        """
+        return self.model_.predict_proba(np.asarray(X, dtype=float))[:, 1] / self.c_
+
     def predict_proba(self, X):
-        p = self.model_.predict_proba(np.asarray(X, dtype=float))[:, 1] / self.c_
-        p = np.clip(p, 0.0, 1.0)
+        p = np.clip(self.decision_function(X), 0.0, 1.0)
         return np.column_stack([1 - p, p])
 
     def predict(self, X):
