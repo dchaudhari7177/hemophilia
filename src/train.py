@@ -291,3 +291,47 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
              y=y[te], p_cal=p_test_cal, p_raw=p_test_raw)
     _save("final", out)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Stage: missing-data probe and semi-supervised learning
+# ---------------------------------------------------------------------------
+def stage_ssl(data=None) -> dict:
+    import lightgbm as lgb
+    from sklearn.metrics import roc_auc_score
+
+    data = data or prepare()
+    X, y, Xu = data["X"], data["y"], data["X_unlabelled"]
+    tr, te = data["train_idx"], data["test_idx"]
+
+    _log("Stage SSL -- missingness probe and self-training")
+    probe_base = RandomForestClassifier(n_estimators=300, min_samples_leaf=5,
+                                        n_jobs=-1, random_state=RANDOM_STATE)
+    probe = ReportingBiasProbe(base_estimator=probe_base).run(
+        np.nan_to_num(X, nan=0.0), np.nan_to_num(Xu, nan=0.0))
+
+    def mk():
+        return build_pipeline(lgb.LGBMClassifier(
+            n_estimators=400, learning_rate=0.03, num_leaves=15,
+            min_child_samples=25, subsample=0.8, subsample_freq=1,
+            colsample_bytree=0.7, reg_lambda=1.0, class_weight="balanced",
+            random_state=RANDOM_STATE, n_jobs=-1, verbose=-1))
+
+    supervised = mk().fit(X[tr], y[tr])
+    p_sup = supervised.predict_proba(X[te])[:, 1]
+
+    ssl = SelfTrainingSSL(base_estimator=mk(), n_rounds=5,
+                          max_adopt_per_round=250)
+    ssl.fit_ssl(X[tr], y[tr], Xu)
+    p_ssl = ssl.predict_proba(X[te])[:, 1]
+
+    out = {
+        "reporting_bias_probe": probe,
+        "unlabelled_risk_profile": estimate_unlabelled_prevalence(supervised, Xu),
+        "self_training_history": ssl.history_,
+        "supervised_test_auc": round(float(roc_auc_score(y[te], p_sup)), 4),
+        "semisupervised_test_auc": round(float(roc_auc_score(y[te], p_ssl)), 4),
+        "delong_ssl_vs_supervised": delong_test(y[te], p_ssl, p_sup),
+    }
+    _save("ssl", out)
+    return out
