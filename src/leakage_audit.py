@@ -111,6 +111,25 @@ def _stratified_idx(y, test_size=0.2, seed=RANDOM_STATE):
     return train_test_split(idx, test_size=test_size, stratify=y, random_state=seed)
 
 
+def _ros_then_split(X: pd.DataFrame, y: pd.Series, seed: int = RANDOM_STATE) -> dict:
+    """Random Over-Sample the minority class, *then* split. Deliberately wrong."""
+    rng = np.random.default_rng(seed)
+    pos = np.where(y.values == 1)[0]
+    neg = np.where(y.values == 0)[0]
+    extra = rng.choice(pos, size=max(len(neg) - len(pos), 0), replace=True)
+    idx = np.concatenate([np.arange(len(y)), extra])
+    Xr = X.iloc[idx].reset_index(drop=True)
+    yr = y.iloc[idx].reset_index(drop=True)
+    tr, te = _stratified_idx(yr, seed=seed)
+    out = _fit_score(Xr, yr, tr, te)
+    # how many test rows are verbatim copies of a training row?
+    tr_keys = set(map(tuple, Xr.iloc[tr].to_numpy()))
+    dup = sum(1 for r in Xr.iloc[te].to_numpy() if tuple(r) in tr_keys)
+    out["test_rows_also_in_train"] = int(dup)
+    out["fraction_test_rows_duplicated_from_train"] = round(dup / len(te), 4)
+    return out
+
+
 def run_audit(champ: pd.DataFrame) -> dict:
     results: dict[str, dict] = {}
 
@@ -170,6 +189,20 @@ def run_audit(champ: pd.DataFrame) -> dict:
                             "scoring a newly discovered variant."),
             **_fit_score(Xa, ya, trf, tef),
         }
+
+    # ---- G. oversampling applied before the split ----------------------
+    # The classical-ML reference applies Random Over-Sampling to the whole
+    # dataset and *then* runs stratified k-fold. Because ROS duplicates
+    # minority rows verbatim, the same patient can land in both the training
+    # and the evaluation fold, and the classifier is graded on rows it has
+    # already memorised. This experiment reproduces that protocol so the
+    # inflation can be measured rather than argued about.
+    results["G_oversample_before_split"] = {
+        "description": ("Random Over-Sampling applied before the train/test "
+                        "split, as in the classical-ML reference. Duplicated "
+                        "minority rows appear on both sides of the split."),
+        **_ros_then_split(Xa, ya),
+    }
 
     # ---- headline comparison -------------------------------------------
     a = results["A_reference_pipeline"]
