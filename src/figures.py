@@ -186,3 +186,49 @@ def fig_performance_panel():
 
     fig.tight_layout()
     return _save(fig, "03_performance_panel")
+
+
+# ---------------------------------------------------------------------------
+# Biology of the cohort
+# ---------------------------------------------------------------------------
+def fig_biology():
+    from .datasets import load_champ, split_by_label
+    from .features import normalise_variant_type, normalise_severity
+
+    lab, _ = split_by_label(load_champ())
+    y = (lab["inhibitor"] == 1).astype(int).values
+    vt = np.array([normalise_variant_type(v) for v in lab["Variant Type"]])
+    sv = np.array([normalise_severity(v) for v in lab["Reported Clinical Severity"]])
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.2))
+
+    order = ["large_structural", "nonsense", "frameshift", "splice",
+             "small_structural", "missense", "synonymous", "regulatory"]
+    order = [o for o in order if (vt == o).sum() >= 5]
+    rates = [y[vt == o].mean() * 100 for o in order]
+    ns = [(vt == o).sum() for o in order]
+    colors = [PALETTE["accent"] if r >= 25 else
+              PALETTE["warn"] if r >= 15 else PALETTE["primary"] for r in rates]
+    axes[0].barh(range(len(order)), rates, color=colors, height=0.6)
+    for i, (r, nn) in enumerate(zip(rates, ns)):
+        axes[0].text(r + 0.7, i, f"{r:.1f}%  (n={nn})", va="center", fontsize=7.5)
+    axes[0].set_yticks(range(len(order)))
+    axes[0].set_yticklabels([o.replace("_", " ") for o in order], fontsize=8)
+    axes[0].invert_yaxis()
+    axes[0].set_xlim(0, max(rates) * 1.4)
+    _style(axes[0], "Inhibitor rate by molecular consequence", "% inhibitor-positive", "")
+
+    sorder = [s for s in ["severe", "moderate", "mild", "mixed", "unknown"]
+              if (sv == s).sum() >= 5]
+    srates = [y[sv == s].mean() * 100 for s in sorder]
+    sns_ = [(sv == s).sum() for s in sorder]
+    axes[1].bar(range(len(sorder)), srates, color=PALETTE["primary"], width=0.55)
+    for i, (r, nn) in enumerate(zip(srates, sns_)):
+        axes[1].text(i, r + 0.6, f"{r:.1f}%\nn={nn}", ha="center", fontsize=7.5)
+    axes[1].set_xticks(range(len(sorder)))
+    axes[1].set_xticklabels(sorder, fontsize=8)
+    axes[1].set_ylim(0, max(srates) * 1.35)
+    _style(axes[1], "Inhibitor rate by clinical severity", "", "% inhibitor-positive")
+
+    fig.tight_layout()
+    return _save(fig, "04_cohort_biology")
