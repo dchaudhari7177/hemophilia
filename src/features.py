@@ -49,3 +49,102 @@ IDENTIFIER_COLUMNS = [
 ]
 
 FEATURE_BLOCKS: dict[str, list[str]] = {}
+
+
+# ---------------------------------------------------------------------------
+# Normalisation of the free-ish categorical columns
+# ---------------------------------------------------------------------------
+_VARIANT_TYPE_MAP = {
+    "missense": "missense",
+    "nonsense": "nonsense",
+    "frameshift": "frameshift",
+    "splice site change": "splice",
+    "large structural change (>50 bp)": "large_structural",
+    "large structure change (>50bp)": "large_structural",
+    "small structural change (in-frame, <50 bp)": "small_structural",
+    "small structural change (in-frame, <50bp)": "small_structural",
+    "synonymous": "synonymous",
+    "promoter": "regulatory",
+    "5'utr": "regulatory",
+    "3'utr": "regulatory",
+}
+
+_MECHANISM_MAP = {
+    "substitution": "substitution",
+    "deletion": "deletion",
+    "duplication": "duplication",
+    "insertion": "insertion",
+    "inversion": "inversion",
+    "deletion/insertion": "delins",
+    "deletion/duplication": "complex",
+    "duplication/insertion": "complex",
+    "deletion/inversion": "complex",
+    "duplication/inversion": "complex",
+    "deletion/duplication/inversion": "complex",
+}
+
+# Null (cross-reactive-material-negative) variant classes. This is the single
+# strongest established genomic predictor of inhibitor development: patients
+# who make no FVIII protein at all have never been immunologically tolerised
+# to it, so infused FVIII is seen as foreign.
+NULL_VARIANT_TYPES = {"large_structural", "frameshift", "nonsense", "splice"}
+
+
+def _norm(s) -> str:
+    if s is None or (isinstance(s, float) and math.isnan(s)):
+        return "unknown"
+    t = re.sub(r"\s+", " ", str(s)).strip().lower()
+    return t if t and t not in {"nan", "none", "n/a"} else "unknown"
+
+
+def normalise_variant_type(s) -> str:
+    return _VARIANT_TYPE_MAP.get(_norm(s), "other")
+
+
+def normalise_mechanism(s) -> str:
+    return _MECHANISM_MAP.get(_norm(s), "other")
+
+
+def normalise_severity(s) -> str:
+    """Collapse the 13 raw spellings into 4 clinically meaningful strata."""
+    t = _norm(s)
+    if "not reported" in t or t == "unknown":
+        return "unknown"
+    has_sev, has_mod, has_mild = "severe" in t, "moderate" in t, "mild" in t
+    if has_sev and not (has_mod or has_mild):
+        return "severe"
+    if has_mod and not has_sev and not has_mild:
+        return "moderate"
+    if has_mild and not (has_sev or has_mod):
+        return "mild"
+    return "mixed"
+
+
+_SEVERITY_ORDINAL = {"mild": 0.0, "mixed": 1.0, "moderate": 1.0,
+                     "severe": 2.0, "unknown": np.nan}
+
+
+def normalise_chain(s) -> str:
+    t = _norm(s)
+    if "heavy" in t:
+        return "heavy"
+    if "light" in t:
+        return "light"
+    if "single" in t:
+        return "single_domain"
+    return "unknown"
+
+
+def parse_exon(s) -> float:
+    """First exon number mentioned; promoter/UTR rows -> NaN."""
+    t = _norm(s)
+    if t in {"unknown", "promoter"}:
+        return np.nan
+    m = re.search(r"\d+", t)
+    return float(m.group()) if m else np.nan
+
+
+def parse_exon_last(s) -> float:
+    t = _norm(s)
+    nums = re.findall(r"\d+", t)
+    return float(nums[-1]) if nums else np.nan
