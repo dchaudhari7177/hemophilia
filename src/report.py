@@ -754,7 +754,7 @@ def section_fused(audit, sim) -> str:
         "the baseline in disguise. Read the other way round it is still "
         "useful: it is a serviceable power analysis showing what *real* "
         "registry covariates would need to look like, and it supports the "
-        "conclusion in &sect;12 that the ceiling here is data rather than method. "
+        "conclusion in section 12 that the ceiling here is data rather than method. "
         "Reported as a simulation, which is what it is.\n")
     return "\n".join(out)
 
