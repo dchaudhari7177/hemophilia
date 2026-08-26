@@ -106,7 +106,6 @@ capstone_final/
 │   ├── datasets.py        CHAMP/CHBMP loaders, tri-state labels, region blocking
 │   ├── leakage_audit.py   forensic reconstruction of the reference result
 │   ├── models.py          classical zoo, 4 reference DNNs, BioBlockAttentionNet
-│   ├── tuning.py          nested search + clinically-constrained boosting
 │   ├── semisupervised.py  missingness probe, self-training over unlabelled rows
 │   ├── evaluate.py        metrics, bootstrap CIs, DeLong, calibration, net benefit
 │   ├── explain.py         SHAP, block attribution, intrinsic attention
@@ -144,8 +143,14 @@ python scripts/fetch_data.py
 python -m src.train --stage all
 ```
 
-Individual stages: `audit`, `cv`, `blocked`, `final`, `ssl`, `external`.
-Add `--no-neural` to skip the torch models.
+Individual stages: `audit`, `cv`, `blocked`, `final`, `subgroups`, `ssl`,
+`external`. Add `--no-neural` to skip the torch models.
+
+```bash
+python -m src.integrity     # 8 mechanical no-leakage / no-resampling checks
+python -m src.fused         # provenance audit of the fused dataset
+python -m src.report        # regenerate RESULTS.md from the artefacts
+```
 
 ```bash
 python -m src.figures
