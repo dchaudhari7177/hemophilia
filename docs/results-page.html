@@ -478,6 +478,11 @@ li::marker { color: var(--faint); }
       <dd class="num" style="color:var(--good)">0.750</dd>
       <small>AUC on F9, zero-shot</small>
     </div>
+    <div>
+      <dt>Accuracy vs doing nothing</dt>
+      <dd class="num">83.0<span style="font-size:15px;color:var(--faint)"> / 80.0</span></dd>
+      <small>model vs all-negative baseline</small>
+    </div>
   </dl>
 </div>
 
@@ -855,10 +860,103 @@ li::marker { color: var(--faint); }
   </div>
 </section>
 
+<section class="forensic">
+  <div class="wrap">
+    <div class="col">
+      <span class="snum">06 — A SECOND DATASET</span>
+      <h2>The file that appeared to solve it</h2>
+      <p class="lede">
+        Section 05 says the binding constraint is missing patient data. A
+        collaborator supplied exactly that — CHAMP with age, ethnicity,
+        treatment regimen, exposure days and family history appended — reporting
+        accuracy in the high eighties.
+      </p>
+      <p>
+        It was tested rather than adopted. Two things came out.
+      </p>
+
+      <div class="callout warn">
+        <h4>Where the 89.6% comes from</h4>
+        <p style="margin-bottom:0">
+          The file's label counts CHAMP's 1,731 unrecorded outcomes as
+          negatives, moving prevalence from 20.1% to 11.4%. Predicting
+          <em>“no inhibitor” for every patient</em> then scores
+          <strong class="mono">88.55%</strong>. The trained model scores
+          <strong class="mono">89.58%</strong> — one point better, while
+          catching <strong>13%</strong> of actual cases (16 flagged of 806).
+        </p>
+      </div>
+    </div>
+
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Provenance check</th><th>Finding</th><th>Verdict</th></tr></thead>
+        <tbody>
+          <tr><td><code>Patient_ID</code> format</td>
+              <td class="n">random UUID4 on 100% of rows</td>
+              <td><span class="chip no">generated</span></td></tr>
+          <tr class="hi"><td><code>Ethnicity</code> association</td>
+              <td class="n">flat, 2.06 pt spread, p = 0.955</td>
+              <td><span class="chip no">effect absent</span></td></tr>
+          <tr><td><code>Family_History</code> effect</td>
+              <td class="n">OR 3.12 vs published 3.0</td>
+              <td><span class="chip no">typed in</span></td></tr>
+          <tr><td>Age vs exposure days</td>
+              <td class="n">r = 0.864</td>
+              <td><span class="chip no">near-deterministic</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="col">
+      <p>
+        The ethnicity row is decisive. Roughly <strong>two-fold higher
+        inhibitor risk in Black and Hispanic patients</strong> is among the most
+        reproducible non-genetic findings in this field — CDC surveillance,
+        MLOF and UKHCDO all replicate it. A real cohort of 4,026 would show it.
+        A column drawn from a fixed multinomial produces exactly this flat line.
+      </p>
+      <p>
+        CHAMP rows are published <em>variants</em>, not patients, so there was
+        never a key on which real per-patient data could be joined.
+      </p>
+    </div>
+
+    <div class="compare">
+      <div class="pane">
+        <h4>Genomic only · 135 features</h4>
+        <div class="big">0.7432</div>
+        <div class="ci">0.683 – 0.801</div>
+        <p>The model this project ships.</p>
+      </div>
+      <div class="pane">
+        <h4>+ clinical · 148 features</h4>
+        <div class="big">0.7390</div>
+        <div class="ci">0.677 – 0.798</div>
+        <p>DeLong <span class="mono">p = 0.69</span>. No gain.</p>
+      </div>
+    </div>
+
+    <div class="col">
+      <p>
+        Same folds, same held-out patients, same featuriser — the only
+        difference being whether the clinical block is present. Cross-validation
+        AUC rises (0.7394 → 0.7506) while held-out AUC falls. That is what
+        fitting injected noise looks like.
+      </p>
+      <p>
+        Read the other way round the file is still useful: a power analysis for
+        what real registry covariates would need to be. Reported as a
+        simulation, which is what it is.
+      </p>
+    </div>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <div class="col">
-      <span class="snum">06 — NEGATIVE RESULTS</span>
+      <span class="snum">07 — NEGATIVE RESULTS</span>
       <h2>Four things that did not work</h2>
       <p>
         Reported because an experiment that fails is still a measurement, and
@@ -909,14 +1007,42 @@ li::marker { color: var(--faint); }
 <section>
   <div class="wrap">
     <div class="col">
-      <span class="snum">07 — WHAT IT IS FOR</span>
+      <span class="snum">08 — WHAT IT IS FOR</span>
       <h2>A rule-out tool, honestly labelled</h2>
       <p>
         Two operating points ship, both fixed on training folds before the test
-        set was touched. The balanced point gives 64.1% sensitivity at 64.4%
-        specificity. The high-sensitivity point gives
-        <strong>87.0% sensitivity with 92.2% negative predictive value</strong>
-        — which is a rule-out instrument, and a defensible use for a
+        set was touched. A third — the accuracy-maximising one — is reported
+        because review panels ask for accuracy, but it is not what the tool
+        runs on, and the reason is visible in its own row.
+      </p>
+
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Operating point</th><th class="n">Accuracy</th>
+            <th class="n">Sens.</th><th class="n">Spec.</th><th class="n">Caught / missed</th></tr></thead>
+          <tbody>
+            <tr><td>Balanced (Youden's J)</td><td class="n">64.4%</td>
+                <td class="n">64.1%</td><td class="n">64.4%</td><td class="n">59 / 33</td></tr>
+            <tr class="ok"><td>Rule-out (90% sensitivity)</td><td class="n">48.3%</td>
+                <td class="n">87.0%</td><td class="n">38.6%</td><td class="n">80 / 12</td></tr>
+            <tr class="hi"><td>Accuracy-maximising</td><td class="n">83.0%</td>
+                <td class="n">17.4%</td><td class="n">99.5%</td><td class="n">16 / 76</td></tr>
+            <tr><td><em>Predict “no inhibitor” for everyone</em></td><td class="n">80.0%</td>
+                <td class="n">0%</td><td class="n">100%</td><td class="n">0 / 92</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>
+        The accuracy-maximising point reaches <strong>83.0%</strong> against an
+        <strong>80.0%</strong> no-skill baseline — and gets there by declining
+        to predict inhibitors, missing 76 of 92 cases. <strong>No threshold
+        anywhere on the curve reaches 85%.</strong> That is the arithmetic of a
+        rare outcome, not a property of this model.
+      </p>
+      <p>
+        The rule-out point is the one worth having: <strong>87.0% sensitivity
+        with 92.2% negative predictive value</strong> — a defensible use for a
         genomic-only model.
       </p>
       <p>
