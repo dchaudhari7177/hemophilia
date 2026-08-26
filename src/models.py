@@ -14,7 +14,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.base import BaseEstimator, ClassifierMixin, clone
-from sklearn.ensemble import (ExtraTreesClassifier, GradientBoostingClassifier,
+from sklearn.ensemble import (ExtraTreesClassifier,
+                              HistGradientBoostingClassifier,
                               RandomForestClassifier)
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LogisticRegression
@@ -339,9 +340,14 @@ def classical_models(random_state: int = RANDOM_STATE) -> dict:
         "ExtraTrees": ExtraTreesClassifier(
             n_estimators=600, min_samples_leaf=4, max_features="sqrt",
             class_weight="balanced", n_jobs=-1, random_state=random_state),
-        "GradientBoosting": GradientBoostingClassifier(
-            n_estimators=250, learning_rate=0.05, max_depth=3,
-            subsample=0.8, random_state=random_state),
+        # HistGradientBoosting rather than the classic GradientBoosting: the
+        # classic one accepts no class_weight, so it was the single model in
+        # this zoo training with no imbalance handling at all, which made its
+        # place in the ranking meaningless. The integrity audit caught this.
+        "GradientBoosting": HistGradientBoostingClassifier(
+            max_iter=250, learning_rate=0.05, max_depth=3,
+            min_samples_leaf=20, l2_regularization=1.0,
+            class_weight="balanced", random_state=random_state),
         "LightGBM": lgb.LGBMClassifier(
             n_estimators=400, learning_rate=0.03, num_leaves=15,
             min_child_samples=25, subsample=0.8, subsample_freq=1,
@@ -351,6 +357,9 @@ def classical_models(random_state: int = RANDOM_STATE) -> dict:
             n_estimators=400, learning_rate=0.03, max_depth=4,
             min_child_weight=5, subsample=0.8, colsample_bytree=0.7,
             reg_lambda=2.0, eval_metric="logloss",
+            # ~4:1 negative-to-positive, matching class_weight="balanced"
+            # elsewhere in the zoo; without it XGBoost was unweighted.
+            scale_pos_weight=4.0,
             random_state=random_state, n_jobs=-1),
     }
 

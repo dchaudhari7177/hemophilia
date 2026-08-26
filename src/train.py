@@ -33,7 +33,8 @@ from sklearn.model_selection import (RepeatedStratifiedKFold, StratifiedKFold,
 
 from .datasets import (LABEL_UNKNOWN, load_champ, load_chbmp, label_summary,
                        protein_region_blocks, split_by_label)
-from .evaluate import (bootstrap_ci, compute_metrics, delong_test,
+from .evaluate import (accuracy_threshold, bootstrap_ci, compute_metrics,
+                       delong_test,
                        threshold_at_sensitivity, youden_threshold)
 from .features import VariantFeaturizer, block_index
 from .models import (RANDOM_STATE, build_pipeline, classical_models,
@@ -286,17 +287,33 @@ def stage_final(data=None, best_name: str | None = None) -> dict:
     thr_youden = youden_threshold(y[tr], oof_cal)
     thr_sens90 = threshold_at_sensitivity(y[tr], oof_cal, 0.90)
     thr_youden_raw = youden_threshold(y[tr], oof_raw)
+    thr_accuracy = accuracy_threshold(y[tr], oof_cal)
 
     out = {
         "selected_model": best_name,
         "n_train": int(len(tr)), "n_test": int(len(te)),
         "test_events": int(y[te].sum()),
         "thresholds": {"youden_on_train_oof": round(thr_youden, 4),
-                       "sensitivity90_on_train_oof": round(thr_sens90, 4)},
+                       "sensitivity90_on_train_oof": round(thr_sens90, 4),
+                       "accuracy_on_train_oof": round(thr_accuracy, 4)},
         "test_calibrated_youden": compute_metrics(y[te], p_test_cal, thr_youden),
         "test_calibrated_sens90": compute_metrics(y[te], p_test_cal, thr_sens90),
+        "test_calibrated_accuracy": compute_metrics(y[te], p_test_cal, thr_accuracy),
         "test_uncalibrated_youden": compute_metrics(y[te], p_test_raw,
                                                     thr_youden_raw),
+        # Accuracy on a 20%-prevalence outcome is only interpretable next to
+        # the score a model gets for never predicting the minority class at
+        # all. It is carried alongside every accuracy figure for that reason.
+        "accuracy_context": {
+            "majority_class_accuracy": round(
+                float(max(y[te].mean(), 1 - y[te].mean())), 4),
+            "model_accuracy": compute_metrics(
+                y[te], p_test_cal, thr_accuracy)["accuracy"],
+            "prevalence": round(float(y[te].mean()), 4),
+            "note": ("A model that predicts 'no inhibitor' for every patient "
+                     "scores the majority-class figure. Any accuracy claim on "
+                     "this outcome has to be read against it."),
+        },
         "threshold_scale_check": {
             "youden_on_calibrated_oof": round(thr_youden, 4),
             "youden_on_raw_oof": round(thr_youden_raw, 4),

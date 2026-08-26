@@ -37,6 +37,26 @@ def youden_threshold(y_true, y_prob) -> float:
     return float(thr[int(np.argmax(tpr - fpr))])
 
 
+def accuracy_threshold(y_true, y_prob) -> float:
+    """Threshold maximising plain accuracy.
+
+    Provided because accuracy is what many rubrics and review panels ask for,
+    not because it is the right objective here. On a 20%-prevalence outcome the
+    accuracy-maximising cut-off is close to the one that never predicts the
+    minority class, so this threshold buys a high headline number at the cost
+    of most of the sensitivity. It is reported next to the majority-class
+    baseline for exactly that reason, and it is not the operating point the
+    tool ships with.
+    """
+    y_true = np.asarray(y_true).astype(int)
+    y_prob = np.asarray(y_prob, dtype=float)
+    grid = np.unique(np.round(y_prob, 3))
+    if len(grid) == 0:
+        return 0.5
+    return float(max(grid, key=lambda t: accuracy_score(
+        y_true, (y_prob >= t).astype(int))))
+
+
 def threshold_at_sensitivity(y_true, y_prob, target: float = 0.90) -> float:
     """Lowest threshold that still reaches ``target`` sensitivity.
 
