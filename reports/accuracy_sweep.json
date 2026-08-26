@@ -1,0 +1,68 @@
+{
+  "baseline_accuracy": 0.8,
+  "models": [
+    {
+      "model": "ExtraTrees",
+      "threshold": 0.811,
+      "test_accuracy": 0.8348,
+      "sensitivity": 0.1957,
+      "specificity": 0.9946,
+      "auc": 0.7419,
+      "beats_baseline_by": 0.0348
+    },
+    {
+      "model": "RandomForest",
+      "threshold": 0.783,
+      "test_accuracy": 0.8283,
+      "sensitivity": 0.1739,
+      "specificity": 0.9918,
+      "auc": 0.7505,
+      "beats_baseline_by": 0.0283
+    },
+    {
+      "model": "GradientBoosting",
+      "threshold": 0.646,
+      "test_accuracy": 0.8261,
+      "sensitivity": 0.1522,
+      "specificity": 0.9946,
+      "auc": 0.7449,
+      "beats_baseline_by": 0.0261
+    },
+    {
+      "model": "LightGBM",
+      "threshold": 0.86,
+      "test_accuracy": 0.8261,
+      "sensitivity": 0.1522,
+      "specificity": 0.9946,
+      "auc": 0.7504,
+      "beats_baseline_by": 0.0261
+    },
+    {
+      "model": "XGBoost",
+      "threshold": 0.702,
+      "test_accuracy": 0.8261,
+      "sensitivity": 0.1304,
+      "specificity": 1.0,
+      "auc": 0.7417,
+      "beats_baseline_by": 0.0261
+    },
+    {
+      "model": "ElasticNetLR",
+      "threshold": 0.837,
+      "test_accuracy": 0.8217,
+      "sensitivity": 0.1848,
+      "specificity": 0.981,
+      "auc": 0.7152,
+      "beats_baseline_by": 0.0217
+    },
+    {
+      "model": "LogisticRegression",
+      "threshold": 0.867,
+      "test_accuracy": 0.8196,
+      "sensitivity": 0.1848,
+      "specificity": 0.9783,
+      "auc": 0.7147,
+      "beats_baseline_by": 0.0196
+    }
+  ]
+}
