@@ -503,7 +503,7 @@ def section_accuracy(final) -> str:
         "And a version of this label that counts unrecorded outcomes as "
         "negatives lifts the no-skill baseline to 88.6%, at which point an "
         "accuracy target in the high eighties is met by a model that does "
-        "nothing. Section 9 works through a dataset where exactly that "
+        "nothing. Section 10 works through a dataset where exactly that "
         "happens.\n")
     out.append(
         "The metrics that cannot be gamed this way — AUC-ROC, AUC-PR against "
@@ -676,9 +676,9 @@ def section_fused(audit, sim) -> str:
     if not (audit and sim):
         return ""
     prov = audit["provenance"]
-    out = ["## 9. A dataset that appeared to solve the problem\n"]
+    out = ["## 10. A dataset that appeared to solve the problem\n"]
     out.append(
-        "Section 10 says the binding constraint is the absence of "
+        "Section 12 says the binding constraint is the absence of "
         "patient-level covariates. A collaborator supplied "
         "`Final_Fused_Dataset.csv`: CHAMP with five of those covariates "
         "appended — age at diagnosis, ethnicity, treatment regimen, exposure "
@@ -754,7 +754,7 @@ def section_fused(audit, sim) -> str:
         "the baseline in disguise. Read the other way round it is still "
         "useful: it is a serviceable power analysis showing what *real* "
         "registry covariates would need to look like, and it supports the "
-        "conclusion in §10 that the ceiling here is data rather than method. "
+        "conclusion in &sect;12 that the ceiling here is data rather than method. "
         "Reported as a simulation, which is what it is.\n")
     return "\n".join(out)
 
@@ -763,7 +763,7 @@ def section_integrity(integ) -> str:
     if not integ:
         return ""
     s = integ["_summary"]
-    out = ["## 10. Pipeline integrity checks\n"]
+    out = ["## 11. Pipeline integrity checks\n"]
     out.append(
         "The claim that these numbers are trustworthy is worth no more than "
         "the checks behind it, so each property is verified mechanically and "
@@ -792,7 +792,7 @@ def section_integrity(integ) -> str:
 
 
 def section_limitations() -> str:
-    return """## 11. Limitations
+    return """## 12. Limitations
 
 These are stated because a model for clinical use is only as trustworthy as its
 declared boundaries.
@@ -823,7 +823,7 @@ declared boundaries.
 
 ---
 
-## 12. Reproducing this document
+## 13. Reproducing this document
 
 ```bash
 python scripts/fetch_data.py
