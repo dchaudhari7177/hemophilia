@@ -456,6 +456,62 @@ def section_final(final) -> str:
     return "\n".join(out)
 
 
+def section_accuracy(final) -> str:
+    """Accuracy, stated the only way it can honestly be stated."""
+    if not final or "accuracy_context" not in final:
+        return ""
+    ctx = final["accuracy_context"]
+    acc = final.get("test_calibrated_accuracy", {})
+    you = final.get("test_calibrated_youden", {})
+    sen = final.get("test_calibrated_sens90", {})
+
+    out = ["### 5.2 Accuracy, and why it is reported with a baseline\n"]
+    out.append(
+        f"Accuracy is the metric review panels usually ask for, so it is "
+        f"reported here — next to the number a model gets for never predicting "
+        f"an inhibitor at all. On a {_pct(ctx['prevalence'])}-prevalence "
+        f"outcome the second figure is not a formality: it is most of the "
+        f"first one.\n")
+    out.append("| Operating point | Accuracy | Sensitivity | Specificity | Cases caught / missed |")
+    out.append("|---|---|---|---|---|")
+    for label, m in [("Balanced (Youden's J)", you),
+                     ("High sensitivity (90%)", sen),
+                     ("Accuracy-maximising", acc)]:
+        if not m:
+            continue
+        out.append(f"| {label} | {_pct(m['accuracy'])} | {_pct(m['sensitivity'])} "
+                   f"| {_pct(m['specificity'])} | {m['tp']} / {m['fn']} |")
+    out.append(f"| *Predict \"no inhibitor\" for everyone* | "
+               f"*{_pct(ctx['majority_class_accuracy'])}* | *0.00%* | "
+               f"*100.00%* | *0 / {you.get('tp', 0) + you.get('fn', 0)}* |")
+    out.append("")
+
+    margin = round(ctx["model_accuracy"] - ctx["majority_class_accuracy"], 4)
+    out.append(
+        f"The accuracy-maximising operating point reaches "
+        f"**{_pct(ctx['model_accuracy'])}** against a no-skill baseline of "
+        f"**{_pct(ctx['majority_class_accuracy'])}** — a margin of "
+        f"**{_signed(margin, 4)}**. It gets there by declining to predict "
+        f"inhibitors: it catches {acc.get('tp', 0)} of "
+        f"{acc.get('tp', 0) + acc.get('fn', 0)} cases. That is the arithmetic "
+        f"of an imbalanced outcome, not a property of this particular model, "
+        f"and it is why the tool ships on the balanced and high-sensitivity "
+        f"points instead.\n")
+    out.append(
+        "Two consequences worth stating plainly. **No threshold anywhere on "
+        "the curve reaches 85% accuracy** — the maximum is the figure above. "
+        "And a version of this label that counts unrecorded outcomes as "
+        "negatives lifts the no-skill baseline to 88.6%, at which point an "
+        "accuracy target in the high eighties is met by a model that does "
+        "nothing. Section 9 works through a dataset where exactly that "
+        "happens.\n")
+    out.append(
+        "The metrics that cannot be gamed this way — AUC-ROC, AUC-PR against "
+        "prevalence, balanced accuracy, MCC — are the ones this project leads "
+        "with, and they are in the table above this one.\n")
+    return "\n".join(out)
+
+
 def section_subgroups(sub) -> str:
     if not sub:
         return ""
@@ -615,8 +671,128 @@ def section_comparison(final, audit) -> str:
     return "\n".join(out)
 
 
+def section_fused(audit, sim) -> str:
+    """The fused CHAMP + clinical dataset: what it promised and what it was."""
+    if not (audit and sim):
+        return ""
+    prov = audit["provenance"]
+    out = ["## 9. A dataset that appeared to solve the problem\n"]
+    out.append(
+        "Section 10 says the binding constraint is the absence of "
+        "patient-level covariates. A collaborator supplied "
+        "`Final_Fused_Dataset.csv`: CHAMP with five of those covariates "
+        "appended — age at diagnosis, ethnicity, treatment regimen, exposure "
+        "days, family history — and it reports accuracy in the high eighties. "
+        "It was tested properly rather than adopted.\n")
+
+    out.append("### 9.1 Where the high accuracy comes from\n")
+    out.append(
+        "The file's `Inhibitor_Status` column maps CHAMP's 1,731 unrecorded "
+        "outcomes to 0 — the defect documented in §2. That moves prevalence "
+        "from 20.1% to 11.4%, and with it the no-skill baseline:\n")
+    out.append("| | Accuracy |")
+    out.append("|---|---|")
+    out.append("| Predict \"no inhibitor\" for every patient | **88.55%** |")
+    out.append("| Trained model on the supplied label | **89.58%** |")
+    out.append("| Margin over doing nothing | **+0.99 points** |")
+    out.append("| Inhibitor cases actually caught | **13%** (16 flagged of 806) |")
+    out.append("")
+    out.append(
+        "The 89.6% falls inside the range a rubric might ask for. It is also, "
+        "in substance, what a model scores for learning to say \"no\".\n")
+
+    out.append("### 9.2 The clinical columns are simulated\n")
+    out.append(
+        "CHAMP rows are published *variants*, not patients — one row "
+        "aggregates every case ever reported with that mutation — so there is "
+        "no key on which per-patient clinical data could have been joined. "
+        "Four independent checks agree the block was generated:\n")
+    out.append("| Check | Finding |")
+    out.append("|---|---|")
+    out.append(f"| `Patient_ID` format | random UUID4 on "
+               f"{_pct(prov['patient_id']['fraction_matching_uuid4'], 0)} of rows |")
+    out.append(f"| `Ethnicity` association | inhibitor rate flat across all five "
+               f"groups, spread {prov['ethnicity']['spread_pct']} points, "
+               f"chi-square p = {prov['ethnicity']['chi2_p']} |")
+    out.append(f"| `Family_History` effect | odds ratio "
+               f"{prov['family_history']['odds_ratio']} against a published "
+               f"{prov['family_history']['published_odds_ratio']} |")
+    out.append(f"| Age vs exposure days | r = "
+               f"{prov['age_vs_exposure']['pearson_r']} |")
+    out.append("")
+    out.append(
+        "The ethnicity result is decisive. Roughly two-fold higher inhibitor "
+        "risk in Black and Hispanic patients is among the most reproducible "
+        "non-genetic findings in this field, replicated across CDC "
+        "surveillance, MLOF and UKHCDO. A real cohort of 4,026 patients would "
+        "show it. A column drawn from a fixed multinomial produces exactly the "
+        "flat line observed.\n")
+
+    out.append("### 9.3 Evaluated properly, they add nothing\n")
+    out.append(
+        "Same folds, same held-out patients, same leakage-free genomic "
+        "featuriser, honest labels throughout. The only difference between "
+        "arms is whether the clinical block is present:\n")
+    out.append("| Arm | Features | CV AUC | Held-out AUC (95% CI) |")
+    out.append("|---|---|---|---|")
+    for key, label in [("genomic_only", "Genomic only"),
+                       ("clinical_only", "Clinical only"),
+                       ("genomic_plus_clinical", "Genomic + clinical")]:
+        a = sim[key]
+        out.append(f"| {label} | {a['n_features']} | "
+                   f"{a['cv_auc_mean']:.4f} ± {a['cv_auc_std']:.4f} | "
+                   f"{_ci(a['test_auc_ci'])} |")
+    out.append("")
+    d = sim["_delong_gain"]
+    out.append(
+        f"Adding the clinical block changes held-out AUC by "
+        f"{_signed(sim['_summary']['auc_gain_from_clinical'])} — DeLong "
+        f"p = {d.get('p_value')}. Cross-validation AUC rises while held-out "
+        f"AUC falls, which is what fitting injected noise looks like.\n")
+    out.append(
+        "So the dataset offers no real gain, and the accuracy it advertises is "
+        "the baseline in disguise. Read the other way round it is still "
+        "useful: it is a serviceable power analysis showing what *real* "
+        "registry covariates would need to look like, and it supports the "
+        "conclusion in §10 that the ceiling here is data rather than method. "
+        "Reported as a simulation, which is what it is.\n")
+    return "\n".join(out)
+
+
+def section_integrity(integ) -> str:
+    if not integ:
+        return ""
+    s = integ["_summary"]
+    out = ["## 10. Pipeline integrity checks\n"]
+    out.append(
+        "The claim that these numbers are trustworthy is worth no more than "
+        "the checks behind it, so each property is verified mechanically and "
+        "the result is written to `reports/integrity.json` rather than "
+        "asserted in prose.\n")
+    out.append("| Check | Result |")
+    out.append("|---|---|")
+    for name, r in integ.items():
+        if name.startswith("_"):
+            continue
+        mark = {True: "pass", False: "**FAIL**", None: "skipped"}[r.get("passed")]
+        out.append(f"| {r.get('check', name)} | {mark} |")
+    out.append("")
+    out.append(f"**{s['passed']} of {s['n_checks']} passed.**"
+               + ("" if s["all_passed"] else f" Failing: {s['failed_checks']}.")
+               + "\n")
+    out.append(
+        "Two are worth spelling out. *No resampling*: class imbalance is "
+        "handled by weighting the objective, never by duplicating or "
+        "synthesising patients — the reference pipeline's Random Over-Sampling "
+        "is what put half of its own test set into its training data. "
+        "*Featuriser is label-blind*: scrambling the outcome and re-fitting "
+        "produces a byte-identical feature matrix, so the engineering cannot "
+        "have absorbed the answer.\n")
+    return "\n".join(out)
+
+
 def section_limitations() -> str:
-    return """## 10. Limitations
+    return """## 11. Limitations
 
 These are stated because a model for clinical use is only as trustworthy as its
 declared boundaries.
@@ -647,7 +823,7 @@ declared boundaries.
 
 ---
 
-## 11. Reproducing this document
+## 12. Reproducing this document
 
 ```bash
 python scripts/fetch_data.py
@@ -678,6 +854,9 @@ def build() -> Path:
     abl = _load("ablation")
     cmp = _load("model_comparison")
     sel = _load("selection")
+    fused_audit = _load("fused_audit")
+    fused_sim = _load("fused_simulation")
+    integ = _load("integrity")
 
     parts = [
         section_header(),
@@ -689,10 +868,13 @@ def build() -> Path:
         section_significance(cmp),
         section_selection(sel),
         section_final(final),
+        section_accuracy(final),
         section_subgroups(sub),
         section_external(external),
         section_ssl(ssl),
         section_comparison(final, audit),
+        section_fused(fused_audit, fused_sim),
+        section_integrity(integ),
         section_limitations(),
     ]
     OUT.write_text("\n".join(p for p in parts if p), encoding="utf-8")
