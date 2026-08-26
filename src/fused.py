@@ -210,3 +210,100 @@ def clinical_features(df: pd.DataFrame) -> pd.DataFrame:
         (out["age_at_diagnosis"] <= 2).astype(float)
         * out["within_first_50_ed"])
     return out.astype(float)
+
+
+# ---------------------------------------------------------------------------
+# The simulation study
+# ---------------------------------------------------------------------------
+def run_simulation(seed: int = 42, n_repeats: int = 3) -> dict:
+    """Measure what the simulated covariates are worth, on honest labels.
+
+    Both arms use the same folds, the same held-out patients and the same
+    leakage-free genomic featuriser. The only difference between them is
+    whether the clinical block is present, so the gap is attributable to those
+    columns and nothing else.
+
+    Accuracy is reported alongside the always-predict-negative baseline in
+    every arm, because on a 20%-prevalence outcome accuracy on its own is not
+    interpretable -- and on the 11%-prevalence version of this label it is
+    actively misleading.
+    """
+    from sklearn.metrics import accuracy_score
+    from sklearn.model_selection import RepeatedStratifiedKFold, train_test_split
+
+    from .datasets import split_by_label
+    from .evaluate import bootstrap_ci, compute_metrics, delong_test
+    from .features import VariantFeaturizer
+    from .models import RANDOM_STATE, build_pipeline, classical_models
+
+    df = load_fused()
+    labelled, _ = split_by_label(df)
+    y = (labelled["inhibitor"] == 1).astype(int).values
+
+    idx = np.arange(len(labelled))
+    tr, te = train_test_split(idx, test_size=0.20, stratify=y, random_state=seed)
+
+    fz = VariantFeaturizer().fit(labelled.iloc[tr])
+    X_gen = fz.transform(labelled).values.astype(float)
+    X_cli = clinical_features(labelled).values.astype(float)
+    X_both = np.hstack([X_gen, X_cli])
+
+    arms = {
+        "genomic_only": X_gen,
+        "clinical_only": X_cli,
+        "genomic_plus_clinical": X_both,
+    }
+    model = classical_models()["ExtraTrees"]
+    cv = RepeatedStratifiedKFold(n_splits=5, n_repeats=n_repeats,
+                                 random_state=RANDOM_STATE)
+
+    results, test_probs = {}, {}
+    for name, X in arms.items():
+        from sklearn.metrics import roc_auc_score
+        fold = []
+        for a, b in cv.split(X[tr], y[tr]):
+            pipe = build_pipeline(model).fit(X[tr][a], y[tr][a])
+            fold.append(float(roc_auc_score(y[tr][b],
+                                            pipe.predict_proba(X[tr][b])[:, 1])))
+        fitted = build_pipeline(model).fit(X[tr], y[tr])
+        p = fitted.predict_proba(X[te])[:, 1]
+        test_probs[name] = p
+
+        # accuracy-optimal threshold, chosen on training folds only
+        oof = np.zeros(len(tr))
+        for a, b in RepeatedStratifiedKFold(
+                n_splits=5, n_repeats=1, random_state=RANDOM_STATE).split(X[tr], y[tr]):
+            m = build_pipeline(model).fit(X[tr][a], y[tr][a])
+            oof[b] = m.predict_proba(X[tr][b])[:, 1]
+        grid = np.unique(np.round(oof, 3))
+        acc_thr = float(max(grid, key=lambda t: accuracy_score(y[tr], (oof >= t).astype(int))))
+
+        results[name] = {
+            "n_features": int(X.shape[1]),
+            "cv_auc_mean": round(float(np.mean(fold)), 4),
+            "cv_auc_std": round(float(np.std(fold)), 4),
+            "test_auc_ci": bootstrap_ci(y[te], p, "auc_roc"),
+            "at_youden": compute_metrics(y[te], p),
+            "at_accuracy_optimal": compute_metrics(y[te], p, acc_thr),
+            "majority_class_accuracy": round(float(max(y[te].mean(), 1 - y[te].mean())), 4),
+        }
+
+    results["_delong_gain"] = delong_test(
+        y[te], test_probs["genomic_plus_clinical"], test_probs["genomic_only"])
+    g, b = results["genomic_only"], results["genomic_plus_clinical"]
+    results["_summary"] = {
+        "auc_gain_from_clinical": round(
+            b["test_auc_ci"]["point"] - g["test_auc_ci"]["point"], 4),
+        "accuracy_genomic_only": g["at_accuracy_optimal"]["accuracy"],
+        "accuracy_with_clinical": b["at_accuracy_optimal"]["accuracy"],
+        "majority_baseline": g["majority_class_accuracy"],
+        "n_test": int(len(te)),
+        "prevalence": round(float(y[te].mean()), 4),
+        "reading": (
+            "The gap between the two arms is what the simulated covariates are "
+            "worth. Because those covariates were generated with hand-chosen "
+            "effect sizes, the gap measures the generator, not real patients -- "
+            "it is a power analysis for collecting registry data, not a "
+            "validation result."),
+    }
+    return results
