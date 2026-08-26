@@ -49,6 +49,32 @@ it has never seen.
 | Clinical utility | not reported | decision-curve net benefit |
 | Priors | none | monotone constraints so the model cannot contradict established immunology |
 | Explanation | post-hoc SHAP + LIME | SHAP, correlation-stable block attribution, and intrinsic per-patient attention |
+| Accuracy claims | headline figure alone | always paired with the majority-class baseline |
+| Integrity | asserted | 8 mechanical checks, verified on every run |
+
+---
+
+## A note on accuracy
+
+Accuracy is reported, and it is reported the only way it can honestly be
+reported on a 20%-prevalence outcome — next to the score a model gets for never
+predicting an inhibitor at all.
+
+| | Accuracy | Sensitivity |
+|---|---|---|
+| Predict "no inhibitor" for everyone | 80.0% | 0% |
+| This model, accuracy-maximising point | ~83.5% | ~18% |
+| This model, balanced point | ~67% | ~73% |
+| This model, rule-out point | ~55% | ~87% |
+
+Two things follow. **No threshold reaches 85%** — the curve tops out below it.
+And the accuracy-maximising operating point is the clinically useless one, so
+the tool ships on the balanced and rule-out points instead.
+
+A dataset that *does* report ~89% is analysed in section 10 of the results: it
+counts unrecorded outcomes as negatives, which lifts the no-skill baseline to
+88.6%, so the headline beats doing nothing by one point while catching 13% of
+cases. See [`docs/ACCURACY_AND_THE_RUBRIC.md`](docs/ACCURACY_AND_THE_RUBRIC.md).
 
 ---
 
@@ -58,6 +84,7 @@ it has never seen.
 |---|---|---|---|---|---|---|
 | CHAMP 2022 | F8 | 4,040 | 461 | 1,835 | 1,744 | training and internal test |
 | CHBMP 2022 | F9 | 1,399 | 40 | 311 | 1,048 | external validation only |
+| Fused CHAMP + clinical | F8 | 4,050 | 461 | 1,835 | 1,744 | simulation study only — see results section 10 |
 
 Both are public CDC releases. `data/raw/champ.csv` ships with the repository;
 the two Excel originals are downloaded by `scripts/fetch_data.py`.
@@ -84,6 +111,14 @@ capstone_final/
 │   ├── evaluate.py        metrics, bootstrap CIs, DeLong, calibration, net benefit
 │   ├── explain.py         SHAP, block attribution, intrinsic attention
 │   ├── figures.py         every report figure, generated from artefacts
+│   ├── fused.py           provenance audit + simulation study of the fused dataset
+│   ├── integrity.py       mechanical no-leakage / no-resampling checks
+│   ├── ablation.py        signal decomposition and leave-one-block-out
+│   ├── ensemble.py        out-of-fold stacking and weighted averaging
+│   ├── selection.py       the pre-registered model-selection rule
+│   ├── subgroups.py       per-stratum performance
+│   ├── tuning.py          nested search + monotone clinical priors
+│   ├── report.py          generates RESULTS.md from the artefacts
 │   ├── train.py           staged training driver
 │   └── predict.py         clinician-facing inference API
 ├── tests/                 parser tests and leakage guard rails
