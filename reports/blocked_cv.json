@@ -46,14 +46,14 @@
       ]
     },
     "GradientBoosting": {
-      "blocked_auc_mean": 0.7002,
-      "blocked_auc_std": 0.0341,
+      "blocked_auc_mean": 0.6928,
+      "blocked_auc_std": 0.0352,
       "folds": [
-        0.6774,
-        0.6525,
-        0.7026,
-        0.7528,
-        0.7158
+        0.6567,
+        0.6488,
+        0.7189,
+        0.7399,
+        0.6996
       ]
     },
     "LightGBM": {
@@ -68,14 +68,14 @@
       ]
     },
     "XGBoost": {
-      "blocked_auc_mean": 0.6914,
-      "blocked_auc_std": 0.032,
+      "blocked_auc_mean": 0.6854,
+      "blocked_auc_std": 0.0399,
       "folds": [
-        0.6525,
-        0.6608,
-        0.7058,
-        0.7407,
-        0.6973
+        0.6248,
+        0.6545,
+        0.7177,
+        0.7312,
+        0.6989
       ]
     },
     "DeepMLP": {

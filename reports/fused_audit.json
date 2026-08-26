@@ -1,0 +1,76 @@
+{
+  "provenance": {
+    "n_labelled": 2296,
+    "n_events": 461,
+    "patient_id": {
+      "n_unique": 4050,
+      "n_rows": 4050,
+      "fraction_matching_uuid4": 1.0,
+      "verdict": "random UUID4 per row -- generated, not a registry identifier"
+    },
+    "ethnicity": {
+      "inhibitor_rate_pct": {
+        "Asian": 20.44,
+        "Black": 20.56,
+        "Caucasian": 19.48,
+        "Hispanic": 21.54,
+        "Other": 20.18
+      },
+      "spread_pct": 2.06,
+      "chi2_p": 0.955,
+      "expected_from_literature": "~2x higher rate in Black and Hispanic patients (CDC, MLOF, UKHCDO)",
+      "verdict": "flat across all groups -- the best-replicated non-genetic effect in inhibitor epidemiology is absent, which a real cohort of this size would not show"
+    },
+    "family_history": {
+      "odds_ratio": 3.12,
+      "published_odds_ratio": 3.0,
+      "chi2_p": 1.02e-20,
+      "verdict": "matches the published figure to two decimals"
+    },
+    "age_vs_exposure": {
+      "pearson_r": 0.864,
+      "verdict": "near-deterministic for a clinical pair -- consistent with one being generated from the other"
+    },
+    "conclusion": "The clinical block is simulated. CHAMP rows are published variants, not patients, so there is no key on which real clinical data could have been joined; the four signatures above confirm generation with hand-chosen effect sizes. Performance obtained from these columns is circular and cannot be reported as validation. It is reported here as a power analysis instead."
+  },
+  "clinical_effect_sizes": {
+    "Age_at_Diagnosis": {
+      "auc": 0.4498,
+      "auc_oriented": 0.5502,
+      "mean_positive": 5.74,
+      "mean_negative": 7.5,
+      "mannwhitney_p": 0.000845
+    },
+    "Exposure_Days": {
+      "auc": 0.4674,
+      "auc_oriented": 0.5326,
+      "mean_positive": 46.1,
+      "mean_negative": 53.61,
+      "mannwhitney_p": 0.03
+    },
+    "Ethnicity": {
+      "inhibitor_rate_pct": {
+        "Asian": 20.44,
+        "Black": 20.56,
+        "Caucasian": 19.48,
+        "Hispanic": 21.54,
+        "Other": 20.18
+      },
+      "chi2_p": 0.955
+    },
+    "Treatment_Regimen": {
+      "inhibitor_rate_pct": {
+        "On-Demand": 14.61,
+        "Prophylaxis": 22.75
+      },
+      "chi2_p": 6.32e-06
+    },
+    "Family_History": {
+      "inhibitor_rate_pct": {
+        "0": 16.73,
+        "1": 38.53
+      },
+      "chi2_p": 1.02e-20
+    }
+  }
+}

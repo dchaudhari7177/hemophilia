@@ -5,7 +5,8 @@
   "test_events": 92,
   "thresholds": {
     "youden_on_train_oof": 0.2034,
-    "sensitivity90_on_train_oof": 0.1055
+    "sensitivity90_on_train_oof": 0.1055,
+    "accuracy_on_train_oof": 0.636
   },
   "test_calibrated_youden": {
     "n": 460,
@@ -55,6 +56,30 @@
     "fp": 226,
     "fn": 12
   },
+  "test_calibrated_accuracy": {
+    "n": 460,
+    "prevalence": 0.2,
+    "threshold": 0.636,
+    "auc_roc": 0.7268,
+    "auc_pr": 0.48,
+    "auc_pr_baseline": 0.2,
+    "accuracy": 0.8304,
+    "balanced_accuracy": 0.5842,
+    "sensitivity": 0.1739,
+    "specificity": 0.9946,
+    "precision": 0.8889,
+    "npv": 0.8281,
+    "f1": 0.2909,
+    "mcc": 0.3475,
+    "brier": 0.1355,
+    "ece": 0.0431,
+    "net_benefit_at_10pct": 0.1208,
+    "net_benefit_at_20pct": 0.056,
+    "tp": 16,
+    "tn": 366,
+    "fp": 2,
+    "fn": 76
+  },
   "test_uncalibrated_youden": {
     "n": 460,
     "prevalence": 0.2,
@@ -78,6 +103,12 @@
     "tn": 224,
     "fp": 144,
     "fn": 31
+  },
+  "accuracy_context": {
+    "majority_class_accuracy": 0.8,
+    "model_accuracy": 0.8304,
+    "prevalence": 0.2,
+    "note": "A model that predicts 'no inhibitor' for every patient scores the majority-class figure. Any accuracy claim on this outcome has to be read against it."
   },
   "threshold_scale_check": {
     "youden_on_calibrated_oof": 0.2034,

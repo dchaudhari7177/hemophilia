@@ -1,0 +1,120 @@
+{
+  "no_resampling": {
+    "check": "no resampling of the training set",
+    "files_scanned": 17,
+    "files_exempt": [
+      "figures.py",
+      "integrity.py",
+      "leakage_audit.py",
+      "report.py"
+    ],
+    "violations": [],
+    "passed": true,
+    "note": "Imbalance is handled by weighting the objective, never by duplicating or synthesising patients. leakage_audit.py is exempt because measuring the reference over-sampling protocol is the point of that module."
+  },
+  "imbalance_handling": {
+    "check": "imbalance handled by weighting, not resampling",
+    "models": [
+      {
+        "model": "LogisticRegression",
+        "class_weight": "balanced",
+        "imbalance_aware": true
+      },
+      {
+        "model": "ElasticNetLR",
+        "class_weight": "balanced",
+        "imbalance_aware": true
+      },
+      {
+        "model": "RandomForest",
+        "class_weight": "balanced_subsample",
+        "imbalance_aware": true
+      },
+      {
+        "model": "ExtraTrees",
+        "class_weight": "balanced",
+        "imbalance_aware": true
+      },
+      {
+        "model": "GradientBoosting",
+        "class_weight": "balanced",
+        "imbalance_aware": true
+      },
+      {
+        "model": "LightGBM",
+        "class_weight": "balanced",
+        "imbalance_aware": true
+      },
+      {
+        "model": "XGBoost",
+        "class_weight": "None",
+        "imbalance_aware": true
+      }
+    ],
+    "passed": true
+  },
+  "preprocessing_inside_folds": {
+    "check": "imputer and scaler live inside the CV pipeline",
+    "pipeline_steps": [
+      "prep",
+      "clf"
+    ],
+    "preprocessor_steps": [
+      "impute",
+      "scale"
+    ],
+    "passed": true,
+    "note": "Because they are Pipeline steps, scikit-learn refits them on each training fold automatically; fitting them once on the full matrix would leak test-fold statistics into training."
+  },
+  "featuriser_is_label_blind": {
+    "check": "featuriser never reads the outcome",
+    "n_features": 135,
+    "identical_under_label_permutation": true,
+    "passed": true
+  },
+  "no_identifier_features": {
+    "check": "no feature behaves like a row identifier",
+    "highest_cardinality_fraction": {
+      "d_volume": 0.0601,
+      "log_span_nt": 0.0505,
+      "d_polarity": 0.0423,
+      "grantham": 0.0391,
+      "d_hydropathy": 0.0364
+    },
+    "threshold": 0.5,
+    "banned_columns_present": [],
+    "passed": true
+  },
+  "test_set_used_once": {
+    "check": "test set is scored, never fitted or tuned on",
+    "fits_on_test": [],
+    "thresholds_chosen_on_test": [],
+    "passed": true
+  },
+  "label_policy": {
+    "check": "'Not reported' is never relabelled as 'no inhibitor'",
+    "n_total": 4040,
+    "n_positive": 461,
+    "n_negative": 1835,
+    "n_unlabelled": 1744,
+    "n_labelled": 2296,
+    "prevalence_labelled": 0.2008,
+    "prevalence_if_unlabelled_called_negative": 0.1141,
+    "passed": true,
+    "note": "Prevalence of 20.1% matches published epidemiology for severe hemophilia A; relabelling would drive it to 11.4%."
+  },
+  "accuracy_reported_with_baseline": {
+    "check": "accuracy reported with its majority-class baseline",
+    "model_accuracy": 0.8304,
+    "majority_class_accuracy": 0.8,
+    "margin_over_baseline": 0.0304,
+    "passed": true
+  },
+  "_summary": {
+    "n_checks": 8,
+    "passed": 8,
+    "failed": 0,
+    "failed_checks": [],
+    "all_passed": true
+  }
+}

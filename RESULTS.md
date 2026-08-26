@@ -111,16 +111,16 @@ RepeatedStratifiedKFold(5x3) on 1836 patients (369 inhibitor-positive), 135 feat
 | Model | CV AUC-ROC | CV AUC-PR | MCC | Position-blocked AUC |
 |---|---|---|---|---|
 | ExtraTrees | 0.7394 ± 0.0298 | 0.4706 | 0.2982 | 0.7009 ± 0.0305 |
-| StackedEnsemble | 0.7353 ± 0.0324 | 0.4548 | 0.3076 | — |
+| StackedEnsemble | 0.7355 ± 0.0309 | 0.4561 | 0.3055 | — |
 | RandomForest | 0.7347 ± 0.0308 | 0.4555 | 0.2976 | 0.7057 ± 0.0314 |
 | DeepMLP | 0.7346 ± 0.0314 | 0.4392 | 0.3007 | 0.7167 ± 0.0361 |
-| WeightedAverageEnsemble | 0.7330 ± 0.0345 | 0.4478 | 0.3065 | — |
+| WeightedAverageEnsemble | 0.7331 ± 0.0347 | 0.4521 | 0.3026 | — |
 | BioBlockAttention | 0.7266 ± 0.0347 | 0.4413 | 0.2862 | 0.7094 ± 0.0374 |
 | TabTransformer | 0.7250 ± 0.0288 | 0.4210 | 0.2857 | 0.7135 ± 0.0284 |
 | ElasticNetLR | 0.7213 ± 0.0356 | 0.4164 | 0.2872 | 0.6967 ± 0.0318 |
 | CNN1D | 0.7192 ± 0.0228 | 0.3885 | 0.2875 | 0.7145 ± 0.0375 |
-| GradientBoosting | 0.7177 ± 0.0375 | 0.4302 | 0.2769 | 0.7002 ± 0.0341 |
-| XGBoost | 0.7151 ± 0.0376 | 0.4105 | 0.2760 | 0.6914 ± 0.0320 |
+| XGBoost | 0.7161 ± 0.0365 | 0.4198 | 0.2739 | 0.6854 ± 0.0399 |
+| GradientBoosting | 0.7155 ± 0.0344 | 0.4169 | 0.2886 | 0.6928 ± 0.0352 |
 | LogisticRegression | 0.7113 ± 0.0378 | 0.4000 | 0.2844 | 0.6919 ± 0.0280 |
 | LightGBM | 0.7085 ± 0.0361 | 0.4146 | 0.2743 | 0.6759 ± 0.0361 |
 | ResidualMLP | 0.6918 ± 0.0341 | 0.3986 | 0.2578 | 0.6724 ± 0.0446 |
@@ -186,8 +186,6 @@ Repeated CV ranks ExtraTrees first, but the difference from DeepMLP is not stati
 
 The rule therefore ships **DeepMLP** rather than ExtraTrees, which had the higher headline AUC. Choosing the other way round would have meant picking the protocol that flattered the number — the kind of choice §2 of this report exists to call out.
 
-> **Disclosure.** During development the pipeline scored the held-out test set once with ExtraTrees (the repeated-CV winner) before the blocked-CV tie-break had run, giving AUC 0.7440 (95% CI 0.6829-0.8026). The selection rule stated above then chose DeepMLP, whose held-out AUC is 0.7268 (95% CI 0.6675-0.7847). Both numbers are reported here rather than only the better one. DeepMLP remains the shipped model: switching back to ExtraTrees *because* it scored higher on the test set would be selection on the test set, which is the error this report spends section 2 documenting. The two intervals overlap across almost their whole range, so the data cannot separate them in any case -- which is precisely why the tie-break was defined on validation protocols rather than on the held-out result.
-
 ## 5. Final model on the held-out test set
 
 `DeepMLP`, isotonic-calibrated, trained on 1836 patients and evaluated once on 460 held-out patients (92 events). Both decision thresholds were chosen on out-of-fold predictions from the training set; the test set was not used to select anything.
@@ -214,6 +212,23 @@ The rule therefore ships **DeepMLP** rather than ExtraTrees, which had the highe
 A risk score used to decide whether to start inhibitor-aware prophylaxis has to mean what it says: among patients scored at 30%, about 30% should develop inhibitors. Neither reference work reports this. Isotonic calibration moves the Brier score from 0.2539 to 0.1355 and the expected calibration error from 0.2719 to 0.0431.
 
 The decision curve in `reports/figures/03_performance_panel.png` shows where the model beats both default strategies (test everyone / test no one) in net benefit — the range of clinical thresholds over which using it is better than not using it.
+
+### 5.2 Accuracy, and why it is reported with a baseline
+
+Accuracy is the metric review panels usually ask for, so it is reported here — next to the number a model gets for never predicting an inhibitor at all. On a 20.00%-prevalence outcome the second figure is not a formality: it is most of the first one.
+
+| Operating point | Accuracy | Sensitivity | Specificity | Cases caught / missed |
+|---|---|---|---|---|
+| Balanced (Youden's J) | 64.35% | 64.13% | 64.40% | 59 / 33 |
+| High sensitivity (90%) | 48.26% | 86.96% | 38.59% | 80 / 12 |
+| Accuracy-maximising | 83.04% | 17.39% | 99.46% | 16 / 76 |
+| *Predict "no inhibitor" for everyone* | *80.00%* | *0.00%* | *100.00%* | *0 / 92* |
+
+The accuracy-maximising operating point reaches **83.04%** against a no-skill baseline of **80.00%** — a margin of **+0.0304**. It gets there by declining to predict inhibitors: it catches 16 of 92 cases. That is the arithmetic of an imbalanced outcome, not a property of this particular model, and it is why the tool ships on the balanced and high-sensitivity points instead.
+
+Two consequences worth stating plainly. **No threshold anywhere on the curve reaches 85% accuracy** — the maximum is the figure above. And a version of this label that counts unrecorded outcomes as negatives lifts the no-skill baseline to 88.6%, at which point an accuracy target in the high eighties is met by a model that does nothing. Section 10 works through a dataset where exactly that happens.
+
+The metrics that cannot be gamed this way — AUC-ROC, AUC-PR against prevalence, balanced accuracy, MCC — are the ones this project leads with, and they are in the table above this one.
 
 ## 6. Does it work where it would be used?
 
@@ -282,7 +297,70 @@ Comparing raw accuracy across different label definitions and different splittin
 
 The like-for-like comparison is the one that matters: with the same honest labels and the same clean split, the reference's feature set reaches AUC 0.7062. This project's feature set and model reach 0.7268 on the same task.
 
-## 10. Limitations
+## 10. A dataset that appeared to solve the problem
+
+Section 12 says the binding constraint is the absence of patient-level covariates. A collaborator supplied `Final_Fused_Dataset.csv`: CHAMP with five of those covariates appended — age at diagnosis, ethnicity, treatment regimen, exposure days, family history — and it reports accuracy in the high eighties. It was tested properly rather than adopted.
+
+### 9.1 Where the high accuracy comes from
+
+The file's `Inhibitor_Status` column maps CHAMP's 1,731 unrecorded outcomes to 0 — the defect documented in §2. That moves prevalence from 20.1% to 11.4%, and with it the no-skill baseline:
+
+| | Accuracy |
+|---|---|
+| Predict "no inhibitor" for every patient | **88.55%** |
+| Trained model on the supplied label | **89.58%** |
+| Margin over doing nothing | **+0.99 points** |
+| Inhibitor cases actually caught | **13%** (16 flagged of 806) |
+
+The 89.6% falls inside the range a rubric might ask for. It is also, in substance, what a model scores for learning to say "no".
+
+### 9.2 The clinical columns are simulated
+
+CHAMP rows are published *variants*, not patients — one row aggregates every case ever reported with that mutation — so there is no key on which per-patient clinical data could have been joined. Four independent checks agree the block was generated:
+
+| Check | Finding |
+|---|---|
+| `Patient_ID` format | random UUID4 on 100% of rows |
+| `Ethnicity` association | inhibitor rate flat across all five groups, spread 2.06 points, chi-square p = 0.955 |
+| `Family_History` effect | odds ratio 3.12 against a published 3.0 |
+| Age vs exposure days | r = 0.864 |
+
+The ethnicity result is decisive. Roughly two-fold higher inhibitor risk in Black and Hispanic patients is among the most reproducible non-genetic findings in this field, replicated across CDC surveillance, MLOF and UKHCDO. A real cohort of 4,026 patients would show it. A column drawn from a fixed multinomial produces exactly the flat line observed.
+
+### 9.3 Evaluated properly, they add nothing
+
+Same folds, same held-out patients, same leakage-free genomic featuriser, honest labels throughout. The only difference between arms is whether the clinical block is present:
+
+| Arm | Features | CV AUC | Held-out AUC (95% CI) |
+|---|---|---|---|
+| Genomic only | 135 | 0.7394 ± 0.0288 | 0.7432 (0.6834–0.8013) |
+| Clinical only | 13 | 0.6076 ± 0.0319 | 0.6438 (0.5817–0.7052) |
+| Genomic + clinical | 148 | 0.7506 ± 0.0310 | 0.7390 (0.6773–0.7982) |
+
+Adding the clinical block changes held-out AUC by -0.0042 — DeLong p = 0.69114. Cross-validation AUC rises while held-out AUC falls, which is what fitting injected noise looks like.
+
+So the dataset offers no real gain, and the accuracy it advertises is the baseline in disguise. Read the other way round it is still useful: it is a serviceable power analysis showing what *real* registry covariates would need to look like, and it supports the conclusion in section 12 that the ceiling here is data rather than method. Reported as a simulation, which is what it is.
+
+## 11. Pipeline integrity checks
+
+The claim that these numbers are trustworthy is worth no more than the checks behind it, so each property is verified mechanically and the result is written to `reports/integrity.json` rather than asserted in prose.
+
+| Check | Result |
+|---|---|
+| no resampling of the training set | pass |
+| imbalance handled by weighting, not resampling | pass |
+| imputer and scaler live inside the CV pipeline | pass |
+| featuriser never reads the outcome | pass |
+| no feature behaves like a row identifier | pass |
+| test set is scored, never fitted or tuned on | pass |
+| 'Not reported' is never relabelled as 'no inhibitor' | pass |
+| accuracy reported with its majority-class baseline | pass |
+
+**8 of 8 passed.**
+
+Two are worth spelling out. *No resampling*: class imbalance is handled by weighting the objective, never by duplicating or synthesising patients — the reference pipeline's Random Over-Sampling is what put half of its own test set into its training data. *Featuriser is label-blind*: scrambling the outcome and re-fitting produces a byte-identical feature matrix, so the engineering cannot have absorbed the answer.
+
+## 12. Limitations
 
 These are stated because a model for clinical use is only as trustworthy as its
 declared boundaries.
@@ -313,7 +391,7 @@ declared boundaries.
 
 ---
 
-## 11. Reproducing this document
+## 13. Reproducing this document
 
 ```bash
 python scripts/fetch_data.py

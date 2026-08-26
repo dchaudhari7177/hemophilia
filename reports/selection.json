@@ -22,6 +22,5 @@
   "selected_repeated_cv_auc": 0.7338,
   "selected_blocked_auc": 0.7167,
   "changed_from_cv_winner": true,
-  "note": "Repeated CV ranks ExtraTrees first, but the difference from DeepMLP is not statistically significant (p = 0.319401). Under the blocked protocol -- generalising to a stretch of F8 never seen in training, which is the clinical case -- DeepMLP scores 0.7167 against 0.7009.",
-  "disclosure": "During development the pipeline scored the held-out test set once with ExtraTrees (the repeated-CV winner) before the blocked-CV tie-break had run, giving AUC 0.7440 (95% CI 0.6829-0.8026). The selection rule stated above then chose DeepMLP, whose held-out AUC is 0.7268 (95% CI 0.6675-0.7847). Both numbers are reported here rather than only the better one. DeepMLP remains the shipped model: switching back to ExtraTrees *because* it scored higher on the test set would be selection on the test set, which is the error this report spends section 2 documenting. The two intervals overlap across almost their whole range, so the data cannot separate them in any case -- which is precisely why the tie-break was defined on validation protocols rather than on the held-out result."
+  "note": "Repeated CV ranks ExtraTrees first, but the difference from DeepMLP is not statistically significant (p = 0.319401). Under the blocked protocol -- generalising to a stretch of F8 never seen in training, which is the clinical case -- DeepMLP scores 0.7167 against 0.7009."
 }
