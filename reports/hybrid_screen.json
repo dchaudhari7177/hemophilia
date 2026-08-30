@@ -1,0 +1,44 @@
+{
+  "ExtraTrees (current best single)": {
+    "cv_auc_mean": 0.7384,
+    "cv_auc_std": 0.0294,
+    "oof_auc": 0.7372,
+    "oof_best_accuracy": 0.8181,
+    "seconds": 4.1
+  },
+  "DeepMLP": {
+    "cv_auc_mean": 0.7351,
+    "cv_auc_std": 0.0338,
+    "oof_auc": 0.7315,
+    "oof_best_accuracy": 0.8181,
+    "seconds": 12.2
+  },
+  "Hybrid_RankAvg": {
+    "cv_auc_mean": 0.7443,
+    "cv_auc_std": 0.0328,
+    "oof_auc": 0.7444,
+    "oof_best_accuracy": 0.8192,
+    "seconds": 82.6
+  },
+  "Hybrid_RankAvg_Bagged": {
+    "cv_auc_mean": 0.7432,
+    "cv_auc_std": 0.0347,
+    "oof_auc": 0.7433,
+    "oof_best_accuracy": 0.8197,
+    "seconds": 264.3
+  },
+  "Hybrid_Stack": {
+    "cv_auc_mean": 0.7433,
+    "cv_auc_std": 0.0334,
+    "oof_auc": 0.7417,
+    "oof_best_accuracy": 0.8197,
+    "seconds": 71.9
+  },
+  "Hybrid_Stack_Wide": {
+    "cv_auc_mean": 0.7404,
+    "cv_auc_std": 0.033,
+    "oof_auc": 0.739,
+    "oof_best_accuracy": 0.8203,
+    "seconds": 285.9
+  }
+}
