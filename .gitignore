@@ -13,6 +13,11 @@ __pycache__/
 reports/_*.log
 reports/run.log
 
+# The hybrid artefact is ~75MB because isotonic calibration keeps one copy of a
+# 600-tree forest per fold. It is regenerated in a couple of minutes by
+# .devtools/eval_hybrid.py, so it does not belong in history.
+models/hybrid_model.joblib
+
 # OS
 Thumbs.db
 .DS_Store
