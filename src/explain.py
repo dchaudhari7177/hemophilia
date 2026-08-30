@@ -150,6 +150,93 @@ def attention_profile(torch_clf, X: np.ndarray) -> pd.DataFrame:
     }).sort_values("mean_attention", ascending=False).reset_index(drop=True)
 
 
+# ---------------------------------------------------------------------------
+# LIME
+# ---------------------------------------------------------------------------
+def lime_explainer(pipeline, X_background: np.ndarray, feature_names: list[str],
+                   random_state: int = 42):
+    """Build a LIME tabular explainer over the transformed feature space.
+
+    LIME perturbs one patient's feature vector, scores the perturbations with
+    the real model, and fits a sparse linear surrogate to that local
+    neighbourhood. It answers a different question from SHAP: not "how is
+    credit allocated across features" but "what does the decision boundary look
+    like immediately around this patient".
+
+    Both are reported because they disagree in an informative way. SHAP is
+    exact for the model and additive by construction; LIME is an approximation
+    but shows local linearity. Where they agree, an explanation is safe to act
+    on. Where they diverge, the patient sits somewhere the model's response is
+    sharply non-linear -- which is worth a clinician knowing.
+    """
+    from lime.lime_tabular import LimeTabularExplainer
+
+    steps = getattr(pipeline, "named_steps", None)
+    prep = steps.get("prep") if steps else None
+    bg = (prep.transform(X_background) if prep is not None
+          else np.nan_to_num(np.asarray(X_background, dtype=float), nan=0.0))
+
+    return LimeTabularExplainer(
+        training_data=bg,
+        feature_names=list(feature_names),
+        class_names=["no inhibitor", "inhibitor"],
+        discretize_continuous=True,
+        random_state=random_state,
+        mode="classification",
+    )
+
+
+def lime_explain_patient(pipeline, explainer, X_row: np.ndarray,
+                         feature_names: list[str], top: int = 8,
+                         n_samples: int = 5000) -> pd.DataFrame:
+    """LIME attribution for one patient, as a ranked table."""
+    steps = getattr(pipeline, "named_steps", None)
+    if steps and "prep" in steps and "clf" in steps:
+        prep, clf = steps["prep"], steps["clf"]
+        row = prep.transform(np.asarray(X_row, dtype=float).reshape(1, -1))[0]
+        predict = clf.predict_proba
+    else:
+        row = np.nan_to_num(np.asarray(X_row, dtype=float).reshape(-1), nan=0.0)
+        predict = pipeline.predict_proba
+
+    exp = explainer.explain_instance(row, predict, num_features=top,
+                                     num_samples=n_samples, labels=(1,))
+    rows = []
+    for rule, weight in exp.as_list(label=1):
+        rows.append({"condition": rule, "weight": round(float(weight), 5),
+                     "direction": "increases risk" if weight > 0
+                                  else "decreases risk"})
+    df = pd.DataFrame(rows)
+    return df.reindex(df["weight"].abs().sort_values(ascending=False).index
+                      ).reset_index(drop=True)
+
+
+def shap_lime_agreement(shap_row: pd.DataFrame, lime_df: pd.DataFrame,
+                        feature_names: list[str]) -> dict:
+    """How far do the two explanations agree on which features matter?
+
+    Compared as sets rather than as ranked lists, because LIME reports
+    discretised conditions ("severity_ordinal > 1.20") rather than bare feature
+    names, so the orderings are not directly comparable.
+    """
+    def _feature_of(condition: str) -> str | None:
+        hits = [f for f in feature_names if f in condition]
+        return max(hits, key=len) if hits else None
+
+    lime_feats = {f for f in (_feature_of(c) for c in lime_df["condition"]) if f}
+    shap_feats = set(shap_row["feature"])
+    if not lime_feats or not shap_feats:
+        return {"overlap": None}
+    inter = lime_feats & shap_feats
+    return {
+        "shap_top_features": sorted(shap_feats),
+        "lime_top_features": sorted(lime_feats),
+        "shared": sorted(inter),
+        "jaccard": round(len(inter) / len(lime_feats | shap_feats), 3),
+        "overlap": round(len(inter) / min(len(lime_feats), len(shap_feats)), 3),
+    }
+
+
 def rank_agreement(a: pd.DataFrame, b: pd.DataFrame, key: str = "block") -> dict:
     """Spearman correlation between two block rankings."""
     from scipy.stats import spearmanr

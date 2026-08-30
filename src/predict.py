@@ -92,6 +92,24 @@ class InhibitorRiskModel:
                                max_rows=1, background=self.shap_background)
         return explain_patient(vals, Xt, self.feature_names, 0, top=top)
 
+    def explain_lime(self, record: dict, top: int = 8) -> pd.DataFrame:
+        """LIME attribution for one patient.
+
+        Reported alongside SHAP because the two answer different questions and
+        their disagreement is itself informative -- see ``src/explain.py``.
+        """
+        from .explain import lime_explain_patient, lime_explainer
+
+        if self.shap_background is None:
+            raise ValueError(
+                "LIME needs the background sample stored in the artefact; "
+                "retrain with `python -m src.train --stage final`.")
+        df = self._frame([record])
+        X = self.featurizer.transform(df).values.astype(float)
+        est = self._base_estimator()
+        expl = lime_explainer(est, self.shap_background, self.feature_names)
+        return lime_explain_patient(est, expl, X[0], self.feature_names, top=top)
+
     def _base_estimator(self):
         """The uncalibrated estimator underneath the calibration wrapper.
 
