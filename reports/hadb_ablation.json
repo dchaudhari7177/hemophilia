@@ -1,0 +1,76 @@
+{
+  "ablation": {
+    "genotype_only": {
+      "auc_roc_mean": 0.7024,
+      "auc_roc_std": 0.0013,
+      "auc_pr_mean": 0.3313,
+      "n_seeds": 3,
+      "n_features": 21
+    },
+    "plus_domain": {
+      "auc_roc_mean": 0.7261,
+      "auc_roc_std": 0.0033,
+      "auc_pr_mean": 0.4154,
+      "n_seeds": 3,
+      "n_features": 37
+    },
+    "plus_position": {
+      "auc_roc_mean": 0.7372,
+      "auc_roc_std": 0.0012,
+      "auc_pr_mean": 0.4241,
+      "n_seeds": 3,
+      "n_features": 50
+    },
+    "genomic_all": {
+      "auc_roc_mean": 0.7417,
+      "auc_roc_std": 0.0029,
+      "auc_pr_mean": 0.4368,
+      "n_seeds": 3,
+      "n_features": 68
+    },
+    "plus_clinical": {
+      "auc_roc_mean": 0.7645,
+      "auc_roc_std": 0.0011,
+      "auc_pr_mean": 0.4616,
+      "n_seeds": 3,
+      "n_features": 86
+    },
+    "plus_region": {
+      "auc_roc_mean": 0.7779,
+      "auc_roc_std": 0.0025,
+      "auc_pr_mean": 0.4844,
+      "n_seeds": 3,
+      "n_features": 95
+    },
+    "clinical_contribution": 0.0228
+  },
+  "shuffled_label_control": {
+    "auc_roc_mean": 0.5042,
+    "auc_roc_values": [
+      0.5074,
+      0.5024,
+      0.5028
+    ],
+    "verdict": "clean -- the matrix carries no row identity"
+  },
+  "split_strictness": {
+    "ungrouped_random": {
+      "auc_roc": 0.8098,
+      "auc_pr": 0.5012
+    },
+    "grouped_by_variant": {
+      "auc_roc_mean": 0.7779,
+      "auc_roc_std": 0.0025,
+      "auc_pr_mean": 0.4844,
+      "n_seeds": 3
+    },
+    "grouped_by_study": {
+      "auc_roc_mean": 0.7797,
+      "auc_roc_std": 0.0004,
+      "auc_pr_mean": 0.4532,
+      "n_seeds": 3
+    },
+    "leak_from_ungrouping": 0.0319
+  },
+  "elapsed_seconds": 338.7
+}
