@@ -23,7 +23,6 @@ import joblib
 import numpy as np
 from scipy.stats import rankdata
 from sklearn.base import clone
-from sklearn.isotonic import IsotonicRegression
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -44,6 +43,8 @@ from src.hadb_train import (  # noqa: E402
     build_cohort,
     grouped_folds,
     holdout_split,
+    BoundedIsotonic,
+    RankEnsemble,
     model_zoo,
     pos_weight_for,
 )
@@ -59,33 +60,6 @@ def oof_probs(model, X, y, folds):
         m.fit(X.iloc[tr], y[tr])
         oof[te] = m.predict_proba(X.iloc[te])[:, 1]
     return oof
-
-
-class RankEnsemble:
-    """Average the rank transforms of several fitted members.
-
-    Rank averaging is used rather than probability averaging because the
-    members are calibrated on different scales -- a forest's 0.6 and a boosted
-    tree's 0.6 are not the same claim. Ranking removes the scale, and a single
-    isotonic layer afterwards puts the blend back onto a probability axis.
-    """
-
-    def __init__(self, members: dict):
-        self.members = members
-
-    def fit(self, X, y):
-        for m in self.members.values():
-            m.fit(X, y)
-        return self
-
-    def decision_scores(self, X) -> np.ndarray:
-        cols = [rankdata(m.predict_proba(X)[:, 1]) / len(X)
-                for m in self.members.values()]
-        return np.column_stack(cols).mean(1)
-
-    def predict_proba(self, X) -> np.ndarray:
-        s = self.decision_scores(X)
-        return np.column_stack([1 - s, s])
 
 
 def main() -> None:
@@ -132,8 +106,7 @@ def main() -> None:
     train_oof_metrics = compute_metrics(ytr, oof)
     print(f"train out-of-fold AUC {train_oof_metrics['auc_roc']:.4f}")
 
-    calibrator = IsotonicRegression(out_of_bounds="clip", y_min=0, y_max=1)
-    calibrator.fit(oof, ytr)
+    calibrator = BoundedIsotonic().fit(oof, ytr)
     oof_cal = calibrator.predict(oof)
 
     thresholds = {
@@ -142,6 +115,9 @@ def main() -> None:
         "sensitivity_90": float(threshold_at_sensitivity(ytr, oof_cal, 0.90)),
         "sensitivity_80": float(threshold_at_sensitivity(ytr, oof_cal, 0.80)),
     }
+    print(f"calibrated risk is bounded to "
+          f"[{calibrator.lo_:.3f}, {calibrator.hi_:.3f}] by the observed "
+          f"decile rates")
     print("thresholds (chosen on training folds):",
           {k: round(v, 3) for k, v in thresholds.items()})
 
@@ -223,8 +199,12 @@ def main() -> None:
         "confidence_intervals": ci,
         "genomic_only_test": compute_metrics(yte, g_prob),
         "delong_full_vs_genomic": delong,
-        "calibration_curve": calibration_curve_points(yte, cal_te),
-        "decision_curve": decision_curve(yte, cal_te),
+        "calibration_curve": dict(zip(
+            ("mean_predicted", "fraction_positive", "n_in_bin"),
+            calibration_curve_points(yte, cal_te))),
+        "decision_curve": dict(zip(
+            ("threshold", "net_benefit_model", "net_benefit_treat_all"),
+            decision_curve(yte, cal_te))),
         "elapsed_seconds": round(time.time() - t0, 1),
     }
     def jsonable(o):

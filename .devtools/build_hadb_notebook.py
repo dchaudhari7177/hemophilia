@@ -11,14 +11,23 @@ CELLS = []
 OUT = Path(__file__).resolve().parents[1] / "Hemophilia_Capstone_HADB.ipynb"
 
 
+def _lines(text):
+    """nbformat wants each source entry to keep its trailing newline.
+
+    Splitting on "\\n" without putting them back concatenates every line into
+    one, which turns a code cell into a syntax error.
+    """
+    return text.strip("\n").splitlines(keepends=True)
+
+
 def md(text):
     CELLS.append({"cell_type": "markdown", "metadata": {},
-                  "source": text.strip("\n").split("\n")})
+                  "source": _lines(text)})
 
 
 def code(text):
     CELLS.append({"cell_type": "code", "metadata": {}, "execution_count": None,
-                  "outputs": [], "source": text.strip("\n").split("\n")})
+                  "outputs": [], "source": _lines(text)})
 
 
 # ===========================================================================
@@ -61,9 +70,16 @@ This notebook adds the **EAHAD/HADB cohort** (Blood Advances 2024), whose
 supplementary table `mmc3` is one row per *patient*, and asks whether the
 ceiling moves once each individual's own baseline phenotype is available.
 
-**It does — to AUC ≈ 0.78 under a strictly grouped protocol, and the genomic
-rung of the ablation independently reproduces 0.742 on a completely different
-registry.**
+**It does — to AUC 0.785 ± 0.004 under a strictly variant-grouped protocol,
+while the genomic rung of the same ablation independently reproduces 0.742 on
+a completely different registry.**
+
+Two of the experiments below came out against what we expected. Section 3
+predicted that variant-level aggregation would cost performance; it gains.
+Section 9's transfer test initially scored *higher* than within-registry
+validation, which turned out to be registry contamination rather than a
+result. Both are reported as they came out, with the correction shown, because
+that is the entire point of a project whose subject is irreproducible results.
 """)
 
 md("## 0. Setup")
@@ -284,12 +300,27 @@ print(json.dumps(audit.get('C_variant_level_aggregation', {}), indent=2))
 """)
 
 md("""
-**Finding C — aggregating to the variant level throws the new data away.**
+**Finding C — and here the experiment contradicted what we expected.**
 
-Collapsing to one row per variant discards 2,323 patient observations and the
-per-patient factor level that comes with them. Two people carrying the same
-variant genuinely differ in outcome; a majority vote deletes that variation
-instead of modelling it.
+The plan was to show that variant-level aggregation costs performance. It does
+not: the variant-level model scores **higher** (0.804 against 0.777). That
+result is reported as it came out.
+
+The two numbers are not comparable. They use a different unit of analysis, a
+different label and a different n, and predicting a variant's *modal* outcome
+is an easier question than predicting one patient's — averaging features across
+a variant's records cancels measurement noise, and well-characterised recurrent
+variants dominate the row set.
+
+So the case for patient-level modelling has to rest on something else, and it
+does. **Of the 537 variants with two or more recorded outcomes, 124 (23.1%) are
+discordant** — patients carrying an identical variant who differ in whether they
+developed an inhibitor, spanning 1,297 records. A majority vote hands every one
+of those patients the same prediction and is simply wrong for the minority.
+
+A higher AUC on an easier question is not a better clinical tool. The variant
+model cannot answer "will *this* patient develop an inhibitor", and it cannot
+use the per-patient factor level that this dataset was added to supply.
 """)
 
 # ---------------------------------------------------------------------------
@@ -490,10 +521,32 @@ if tuning:
 
 # ---------------------------------------------------------------------------
 md("""
-## 8. The held-out result
+## 8. The headline result
 
-Everything above was decided on training folds. The held-out set is scored
-once, here.
+Two numbers, and it matters which is which.
+
+The **primary estimate** is repeated variant-grouped cross-validation over the
+whole labelled cohort. The **held-out split** is the independent check that
+nothing was tuned into that estimate. It is reported second, not because it is
+less trustworthy, but because a single 20% split holds 974 records and about
+159 positives — roughly ±0.04 of sampling noise, too wide to headline.
+""")
+
+code("""
+if final:
+    fc = final.get('repeated_full_cohort_cv', {})
+    print('PRIMARY -- repeated variant-grouped CV, whole labelled cohort')
+    print(f"  AUC-ROC {fc.get('auc_roc_mean'):.4f} +/- {fc.get('auc_roc_std'):.4f}"
+          f"   (seeds: {fc.get('auc_roc_values')}, n = {fc.get('n'):,})")
+    print()
+    print('CHECK -- single variant-grouped held-out split, scored once')
+    ty = final.get('test_youden', {})
+    print(f"  AUC-ROC {ty['auc_roc']:.4f}  CI95 {final['confidence_intervals']['auc_roc_ci95']}")
+    inside = (final['confidence_intervals']['auc_roc_ci95'][0]
+              <= fc.get('auc_roc_mean', 0)
+              <= final['confidence_intervals']['auc_roc_ci95'][1])
+    print(f"  the CV estimate falls inside that interval: {inside}")
+    print()
 """)
 
 code("""
@@ -580,6 +633,39 @@ has to mean what it says — a stated 25% should come true about a quarter of th
 time — otherwise the number cannot be used to decide anything. Isotonic
 regression is fitted on training out-of-fold scores only, never on the
 held-out set.
+
+### Does using it beat not using it?
+
+AUC says the ranking is good. It does not say whether acting on the score helps.
+A decision curve answers that directly: net benefit across the range of
+thresholds a clinician might adopt, against the two strategies that need no
+model at all — monitor everybody, or monitor nobody.
+""")
+
+code("""
+if final and final.get('decision_curve'):
+    dc = final['decision_curve']
+    t = np.array(dc['threshold'])
+    fig, ax = plt.subplots(figsize=(8, 4.4))
+    ax.plot(t, dc['net_benefit_model'], lw=2, color='#3b6ea5', label='model')
+    ax.plot(t, dc['net_benefit_treat_all'], lw=1.5, color='#c26a3d',
+            ls='--', label='monitor everyone')
+    ax.axhline(0, color='k', lw=1, label='monitor no one')
+    ax.set_xlabel('threshold probability a clinician would act at')
+    ax.set_ylabel('net benefit')
+    ax.set_title('Decision curve (held-out)')
+    ax.set_ylim(min(-0.02, float(np.min(dc['net_benefit_model'])) - 0.01), None)
+    ax.legend(fontsize=8)
+    plt.tight_layout(); plt.show()
+
+    useful = t[(np.array(dc['net_benefit_model']) > 0) &
+               (np.array(dc['net_benefit_model']) >
+                np.array(dc['net_benefit_treat_all']))]
+    if len(useful):
+        print(f'the model beats both trivial strategies for thresholds '
+              f'{useful.min():.2f} to {useful.max():.2f}')
+    else:
+        print('the model does not beat both trivial strategies at any threshold')
 """)
 
 # ---------------------------------------------------------------------------
@@ -607,7 +693,66 @@ if transfer:
         {'setting': 'CHAMP -> HADB (transfer)',  'auc': transfer['champ_to_hadb']['auc_roc']},
     ]
     print(pd.DataFrame(rows).to_string(index=False))
-    print(f"\\ntransfer penalty: {json.dumps(transfer.get('transfer_penalty', {}))}")
+""")
+
+md("""
+### Stop — that result is wrong, and the reason matters
+
+Transfer scores **higher** than within-registry cross-validation (0.879 against
+0.725). A model applied to a cohort it has never seen should not beat the same
+model cross-validated on its own data. When that happens, the "unseen" cohort
+is not unseen.
+
+CHAMP and EAHAD are both compiled from the *published literature*, and they
+compile a lot of the same papers. Checking directly: **64.5% of CHAMP's
+substitution-like labelled variants already appear in HADB.** The transfer
+figure above is therefore substantially a memorisation test.
+""")
+
+code("""
+if transfer:
+    print(json.dumps(transfer.get('registry_overlap', {}), indent=2))
+""")
+
+md("""
+### The corrected external result
+
+Splitting CHAMP into variants HADB has seen and variants novel to it gives the
+honest number. One subtlety had to be handled first: the matching key needs a
+reference residue and a position, which a frameshift does not have. Left
+uncorrected, every frameshift falls into "novel" by default, and the comparison
+becomes 77% frameshift against 60% missense — measuring mutation-class
+composition rather than novelty. Both strata are therefore restricted to
+substitution-like variants.
+""")
+
+code("""
+if transfer:
+    ce = transfer.get('contamination_effect', {})
+    print(json.dumps(ce, indent=2))
+    nov = transfer.get('hadb_to_champ_novel_only', {})
+    if nov:
+        print(f"\\nexternal AUC on variants novel to HADB: {nov['auc_roc']:.4f} "
+              f"{nov.get('auc_roc_ci95')}")
+""")
+
+md("""
+Reading it in order:
+
+* **0.936** on CHAMP variants HADB had already seen — familiarity.
+* **0.851** [0.819, 0.881] on CHAMP variants novel to HADB — **the external
+  result this project claims.**
+* The 0.085 gap between them is the contamination, now measured rather than
+  ignored.
+
+And the like-for-like control, which is the striking part. On those *exact same
+novel rows*, CHAMP's own cross-validated model scores **0.624**. Training on
+4,966 patient-level records from a European consortium predicts novel American
+variants **+0.228 AUC better** than CHAMP predicts them from its own data.
+
+That is the clearest evidence in the project that patient-level records with
+repeated observations per variant are richer supervision than a variant
+catalogue — the same conclusion the ablation reached, arrived at independently.
 """)
 
 code("""

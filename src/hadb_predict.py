@@ -105,6 +105,8 @@ class HADBRiskModel:
         self.feature_blocks = bundle["feature_blocks"]
         self.metrics = bundle.get("metrics", {})
         self.provenance = bundle.get("provenance", "")
+        self.train_reference = pd.Series(bundle.get("train_reference", {}),
+                                         dtype=float)
 
     @staticmethod
     def _band(p: float) -> str:
@@ -157,17 +159,24 @@ class HADBRiskModel:
         """
         X = self.design_matrix([record])
         base = float(self.ensemble.decision_scores(X)[0])
-        median = pd.Series(
-            joblib.load(ARTEFACT).get("train_reference", {}))
+        median = self.train_reference
         rows = []
         for col in self.feature_names:
-            if col not in median.index or pd.isna(X.iloc[0][col]):
+            if col not in median.index:
+                continue
+            current = X.iloc[0][col]
+            # A feature the caller left blank is still worth reporting: the
+            # imputer will substitute the median, so "unmeasured" is itself a
+            # state the model acts on. Only skip it when resetting would be a
+            # no-op.
+            if pd.notna(current) and current == median[col]:
                 continue
             Xp = X.copy()
             Xp.loc[Xp.index[0], col] = median[col]
             delta = base - float(self.ensemble.decision_scores(Xp)[0])
             if abs(delta) > 1e-9:
-                rows.append({"feature": col, "value": X.iloc[0][col],
+                rows.append({"feature": col,
+                             "value": None if pd.isna(current) else float(current),
                              "contribution": round(delta, 5),
                              "direction": "increases risk" if delta > 0
                                           else "lowers risk"})

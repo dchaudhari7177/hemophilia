@@ -38,6 +38,7 @@ from sklearn.ensemble import (
     StackingClassifier,
 )
 from sklearn.impute import SimpleImputer
+from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold
 from sklearn.neighbors import KNeighborsClassifier
@@ -247,3 +248,96 @@ def stacking_ensemble(random_state: int = RANDOM_STATE,
 def pos_weight_for(y) -> float:
     n_pos = float((y == 1).sum())
     return float((len(y) - n_pos) / max(n_pos, 1.0))
+
+
+class BoundedIsotonic:
+    """Isotonic calibration that is not allowed to claim certainty.
+
+    Plain isotonic regression is a step function, so its top step takes the
+    value of whatever the highest-scoring training bin happened to contain. If
+    that bin is small and entirely positive, the calibrator returns exactly
+    1.0 -- and the app then tells a clinician that a patient will *certainly*
+    develop an inhibitor. Nothing in the data supports that: the worst
+    observed stratum, severe patients with a large deletion, runs at 53%, and
+    the top calibration bin at 60%.
+
+    The extremes are therefore bounded by what was actually observed. Training
+    scores are split into deciles, each decile's positive rate is
+    Laplace-smoothed (``(k+1)/(n+2)``, so a bin that happens to be all-positive
+    still lands short of 1), and predictions are clipped to the range those
+    smoothed rates span. Ranking is untouched, so AUC is unchanged; only the
+    numbers quoted to a human are made honest.
+    """
+
+    def __init__(self, n_bins: int = 10):
+        self.n_bins = n_bins
+
+    def fit(self, scores, y):
+        scores = np.asarray(scores, dtype=float)
+        y = np.asarray(y, dtype=float)
+        self.iso_ = IsotonicRegression(out_of_bounds="clip", y_min=0.0,
+                                       y_max=1.0).fit(scores, y)
+
+        edges = np.unique(np.quantile(scores, np.linspace(0, 1, self.n_bins + 1)))
+        rates = []
+        for lo, hi in zip(edges[:-1], edges[1:]):
+            m = (scores >= lo) & (scores <= hi)
+            if m.sum() >= 5:
+                rates.append((y[m].sum() + 1.0) / (m.sum() + 2.0))
+        if not rates:                       # degenerate: fall back to prevalence
+            rates = [float(y.mean())]
+        self.lo_ = float(min(rates))
+        self.hi_ = float(max(rates))
+        return self
+
+    def predict(self, scores):
+        return np.clip(self.iso_.predict(np.asarray(scores, dtype=float)),
+                       self.lo_, self.hi_)
+
+
+class RankEnsemble:
+    """Average the rank transforms of several fitted members.
+
+    Rank averaging is used rather than probability averaging because the
+    members are calibrated on different scales -- a forest's 0.6 and a boosted
+    tree's 0.6 are not the same claim. Ranking removes the scale, and a single
+    isotonic layer afterwards puts the blend back onto a probability axis.
+
+    This lives in ``src`` rather than in the training script because the fitted
+    object is pickled into the shipped artefact. A class defined in a ``python
+    script.py`` entry point pickles as ``__main__.RankEnsemble`` and cannot be
+    loaded by the app or the notebook.
+    """
+
+    def __init__(self, members: dict):
+        self.members = members
+
+    def fit(self, X, y):
+        for m in self.members.values():
+            m.fit(X, y)
+        # Each member's rank transform is defined against the *training*
+        # distribution, not against whatever rows happen to be scored together.
+        # Ranking within the input batch would make a single patient's score
+        # depend on who else was in the request -- and scoring one patient
+        # alone would rank them 1/1 and return the same number for everybody.
+        self.reference_ = {
+            name: np.sort(m.predict_proba(X)[:, 1])
+            for name, m in self.members.items()
+        }
+        return self
+
+    def decision_scores(self, X) -> np.ndarray:
+        cols = []
+        for name, m in self.members.items():
+            p = m.predict_proba(X)[:, 1]
+            ref = getattr(self, "reference_", {}).get(name)
+            if ref is None or len(ref) == 0:
+                from scipy.stats import rankdata
+                cols.append(rankdata(p) / max(len(p), 1))
+            else:
+                cols.append(np.searchsorted(ref, p, side="right") / len(ref))
+        return np.column_stack(cols).mean(1)
+
+    def predict_proba(self, X) -> np.ndarray:
+        s = self.decision_scores(X)
+        return np.column_stack([1 - s, s])
