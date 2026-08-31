@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FVIII Inhibitor Risk — patient-level model</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>FVIII Inhibitor Risk <span class="opt">v2 · patient-level</span></h1>
+    <p class="sub">
+      Trained on the EAHAD/HADB cohort, one row per patient — the individual's
+      own factor level and severity alongside the F8 variant.
+    </p>
+    {% if metrics %}
+    <ul class="badges">
+      <li><span>Held-out AUC</span><strong>{{ '%.3f'|format(metrics.auc) }}</strong></li>
+      <li><span>Sensitivity</span><strong>{{ '%.0f'|format(metrics.sensitivity * 100) }}%</strong></li>
+      <li><span>Specificity</span><strong>{{ '%.0f'|format(metrics.specificity * 100) }}%</strong></li>
+      <li><span>Held-out n</span><strong>{{ metrics.n_test }}</strong></li>
+      <li><span>Prevalence</span><strong>{{ '%.1f'|format(metrics.prevalence * 100) }}%</strong></li>
+    </ul>
+    {% endif %}
+    <p class="sub"><a href="{{ url_for('index') }}">← v1: genomic-only model (CHAMP)</a></p>
+  </div>
+</header>
+
+<main class="wrap grid">
+  <section class="card">
+    <h2>Patient</h2>
+    <form id="form">
+      <h3>Genotype</h3>
+      <div class="row">
+        <div class="field">
+          <label for="effect">Mutation class</label>
+          <select id="effect" name="effect">
+            {% for o in options.effect %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="domain">FVIII domain</label>
+          <select id="domain" name="domain">
+            <option value="">—</option>
+            {% for o in options.domain %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="exon">Exon <span class="opt">1–26</span></label>
+          <input id="exon" name="exon" placeholder="14" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="aa_position">Residue <span class="opt">mature numbering</span></label>
+          <input id="aa_position" name="aa_position" placeholder="372" autocomplete="off">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="aa_first">Reference residue <span class="opt">optional</span></label>
+          <select id="aa_first" name="aa_first">
+            <option value="">—</option>
+            {% for o in options.residues %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="aa_last">Substituted residue <span class="opt">optional</span></label>
+          <select id="aa_last" name="aa_last">
+            <option value="">—</option>
+            {% for o in options.residues %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <h3>Baseline phenotype</h3>
+      <div class="row">
+        <div class="field">
+          <label for="severity">Clinical severity</label>
+          <select id="severity" name="severity">
+            {% for o in options.severity %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="fviii_activity">FVIII activity <span class="opt">% / IU dL⁻¹</span></label>
+          <input id="fviii_activity" name="fviii_activity" placeholder="0.5" autocomplete="off">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="crm_type">CRM type</label>
+          <select id="crm_type" name="crm_type">
+            {% for o in options.crm_type %}<option>{{ o }}</option>{% endfor %}
+          </select>
+          <small>I = no circulating antigen · II = dysfunctional protein present</small>
+        </div>
+        <div class="field">
+          <label for="fviii_antigen">FVIII antigen <span class="opt">optional</span></label>
+          <input id="fviii_antigen" name="fviii_antigen" placeholder="&lt;1" autocomplete="off">
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="region">Reporting region</label>
+          <select id="region" name="region">
+            {% for o in options.region %}<option>{{ o }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="threshold_rule">Operating point</label>
+          <select id="threshold_rule" name="threshold_rule">
+            <option value="youden">Balanced (Youden's J)</option>
+            <option value="sensitivity_80">Rule-out (80% sensitivity)</option>
+            <option value="sensitivity_90">Rule-out (90% sensitivity)</option>
+            <option value="accuracy_max">Accuracy-maximising</option>
+          </select>
+          <small>The accuracy-maximising point is the least clinically useful — it wins by flagging almost nobody.</small>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="go">Estimate risk</button>
+        <button type="button" id="demo" class="ghost">Load example</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="card" id="out" hidden>
+    <h2>Estimated risk</h2>
+    <div class="result">
+      <div class="gauge"><div class="fill" id="fill"></div></div>
+      <p class="prob"><span id="prob">—</span><small>probability of inhibitor development</small></p>
+      <p class="band" id="band">—</p>
+      <p class="call" id="call">—</p>
+    </div>
+    <h3>What drove this estimate</h3>
+    <table id="expl"><thead><tr><th>Feature</th><th>Effect</th></tr></thead><tbody></tbody></table>
+    <p class="disclaimer" id="disclaimer"></p>
+  </section>
+</main>
+
+<footer class="wrap">
+  <p>PES University B.Tech Capstone · PW_GRS_01 · Trained on the EAHAD/HADB F8
+     cohort (Blood Adv. 2024), validated with variant-grouped splits and
+     cross-registry transfer to CDC CHAMP.
+     Research and educational use only — not a validated medical device.</p>
+</footer>
+
+<script src="{{ url_for('static', filename='hadb.js') }}"></script>
+</body>
+</html>

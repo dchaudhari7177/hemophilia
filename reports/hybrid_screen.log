@@ -1,0 +1,10 @@
+model                                 CV AUC      sd    secs
+ExtraTrees (current best single)      0.7384  0.0294     4.1
+DeepMLP                               0.7351  0.0338    12.2
+Hybrid_RankAvg                        0.7443  0.0328    82.6
+Hybrid_RankAvg_Bagged                 0.7432  0.0347   264.3
+Hybrid_Stack                          0.7433  0.0334    71.9
+Hybrid_Stack_Wide                     0.7404  0.0330   285.9
+
+best by CV AUC: Hybrid_RankAvg  0.7443
+train-OOF accuracy ceiling for that model: 0.8192

@@ -1,0 +1,45 @@
+{
+  "A_unrecorded_relabelled_as_negative": {
+    "variants_in_registry": 6212,
+    "variants_with_a_recorded_outcome": 2643,
+    "rows_in_ml_ready_file": 3706,
+    "rows_labelled_negative_without_an_outcome": 1063,
+    "prevalence_in_ml_ready_file": 0.133,
+    "prevalence_among_variants_actually_followed_up": 0.2346,
+    "prevalence_among_patient_records": 0.1683,
+    "finding": "1,063 variants carry inhibitor_target = 0 although no inhibitor outcome was ever recorded for them. Absence of a report is not a negative result. The substitution drops apparent prevalence from 23.5% to 13.3% and pads the majority class, which raises accuracy without the model predicting anything better."
+  },
+  "B_outcome_aggregate_used_as_feature": {
+    "forbidden_columns_present_in_merged_csv": [
+      "inhibitor_no_count",
+      "inhibitor_positive_rate",
+      "inhibitor_total_known",
+      "inhibitor_yes_count",
+      "uantigen",
+      "uclotting",
+      "ucomments",
+      "udiscrep",
+      "uinhibitor",
+      "uratio",
+      "useverity",
+      "utype"
+    ],
+    "auc_without_them": 0.7766,
+    "auc_with_inhibitor_positive_rate": 0.9657,
+    "inflation": 0.1891,
+    "finding": "inhibitor_positive_rate is the target averaged over the very records being predicted. Adding that one column moves AUC by the amount reported above with no new biology involved. uinhibitor, useverity, uclotting, uratio, uantigen and utype are the same quantity in other clothing and are all in hadb.FORBIDDEN."
+  },
+  "C_variant_level_aggregation": {
+    "n_rows_patient_level": 4966,
+    "n_rows_variant_level": 2643,
+    "auc_patient_level": 0.7766,
+    "auc_variant_level_majority_vote": 0.8038,
+    "variants_with_2plus_recorded_outcomes": 537,
+    "of_those_discordant": 124,
+    "discordance_rate": 0.2309,
+    "patient_records_inside_discordant_variants": 1297,
+    "finding": "The variant-level score is HIGHER, and it would be dishonest to present that as a loss. The two numbers are not comparable: they use a different unit of analysis, a different label and a different n. Predicting a variant's modal outcome is an easier problem than predicting one patient's -- averaging features across a variant's records cancels measurement noise, and recurrent well-characterised variants dominate the row set.",
+    "why_patient_level_is_still_the_right_unit": "It answers the question a clinician actually asks. Of the 537 variants with two or more recorded outcomes, 124 (23.1%) are discordant -- patients carrying the identical variant who differ in whether they developed an inhibitor, spanning 1297 records. A majority vote assigns every one of those patients the same prediction and is simply wrong for the minority, and the variant-level framing cannot use the per-patient factor level that this dataset was added to supply. A higher AUC on an easier question is not a better tool."
+  },
+  "elapsed_seconds": 26.5
+}

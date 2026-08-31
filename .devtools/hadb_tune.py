@@ -119,23 +119,29 @@ def main() -> None:
 
     # -- stage 1: tune each family -----------------------------------------
     tuned, tuned_params = {}, {}
-    print("tuning (40 draws each, grouped folds):")
+    print("tuning (25 draws each, grouped folds):", flush=True)
     for name, space in SEARCH_SPACES.items():
         t = time.time()
+        est = clone(zoo[name])
+        # The search parallelises over candidates, so the estimator inside must
+        # stay single-threaded. Leaving both at n_jobs=-1 oversubscribes every
+        # core and makes the search several times slower than serial.
+        if "n_jobs" in est.named_steps["clf"].get_params():
+            est.set_params(clf__n_jobs=1)
         search = RandomizedSearchCV(
-            zoo[name], space, n_iter=40, scoring="roc_auc", cv=folds,
-            random_state=RANDOM_STATE, n_jobs=-1, refit=True, error_score=0.0)
+            est, space, n_iter=25, scoring="roc_auc", cv=folds,
+            random_state=RANDOM_STATE, n_jobs=4, refit=True, error_score=0.0,
+            pre_dispatch="2*n_jobs")
         search.fit(X, y)
         tuned[name] = search.best_estimator_
         tuned_params[name] = {k: (v if not isinstance(v, np.generic) else v.item())
                               for k, v in search.best_params_.items()}
-        baseline = None
         out.setdefault("tuning", {})[name] = {
             "best_cv_auc": round(float(search.best_score_), 4),
             "best_params": tuned_params[name],
             "seconds": round(time.time() - t, 1),
         }
-        print(f"  {name:24s} {search.best_score_:.4f}  ({time.time()-t:.0f}s)")
+        print(f"  {name:24s} {search.best_score_:.4f}  ({time.time()-t:.0f}s)", flush=True)
 
     # -- stage 2: combine ---------------------------------------------------
     print("\nbuilding grouped out-of-fold matrix for the ensemble:")

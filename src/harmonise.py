@@ -155,6 +155,36 @@ def _assemble(effect: pd.Series,
     return f.replace([np.inf, -np.inf], np.nan).astype(float)
 
 
+def variant_key(effect, mature_pos, ref_aa, alt_aa) -> tuple:
+    """An identity a variant keeps across both registries.
+
+    CHAMP and EAHAD are compiled from overlapping published literature, so the
+    same variant is frequently curated by both. Cross-registry transfer is only
+    an *external* validation on the variants the target registry does not share
+    with the training one; without this key the shared majority turns transfer
+    into a memorisation test that scores far too well.
+    """
+    pos = None if mature_pos is None or mature_pos != mature_pos else round(
+        float(mature_pos), 1)
+    return (str(effect), pos, str(ref_aa or ""), str(alt_aa or ""))
+
+
+def hadb_variant_keys(df: pd.DataFrame) -> set:
+    from .hadb import SIGNAL_PEPTIDE_LEN, _aa1
+
+    mature = pd.to_numeric(df["aa_numb"], errors="coerce") - SIGNAL_PEPTIDE_LEN
+    return {variant_key(e, m, r, a) for e, m, r, a in zip(
+        df["effect"], mature, df["aa_first"].map(_aa1), df["aa_last"].map(_aa1))}
+
+
+def champ_variant_keys(df: pd.DataFrame) -> list:
+    parsed = [parse_protein(row.get("HGVS Protein"), row.get("Mature Protein"))
+              for _, row in df.iterrows()]
+    effect = df["Variant Type"].map(_champ_effect)
+    return [variant_key(e, p.mature_pos, p.ref_aa, p.alt_aa)
+            for e, p in zip(effect, parsed)]
+
+
 def harmonise_hadb(df: pd.DataFrame) -> pd.DataFrame:
     """Project HADB allele records into the shared space."""
     from .hadb import SIGNAL_PEPTIDE_LEN, _aa1, parse_exon_number

@@ -38,7 +38,12 @@ from src.hadb_train import (  # noqa: E402
     model_zoo,
     pos_weight_for,
 )
-from src.harmonise import harmonise_champ, harmonise_hadb  # noqa: E402
+from src.harmonise import (  # noqa: E402
+    champ_variant_keys,
+    hadb_variant_keys,
+    harmonise_champ,
+    harmonise_hadb,
+)
 
 warnings.filterwarnings("ignore")
 
@@ -100,8 +105,8 @@ def main() -> None:
     fitted_h = clone(mh).fit(Xh, yh)
     p_hc = fitted_h.predict_proba(Xc)[:, 1]
     m_hc = compute_metrics(yc, p_hc)
-    lo, hi = bootstrap_ci(yc, p_hc, "auc_roc", n_boot=2000)
-    m_hc["auc_roc_ci95"] = [round(float(lo), 4), round(float(hi), 4)]
+    ci = bootstrap_ci(yc, p_hc, "auc_roc", n_boot=2000)
+    m_hc["auc_roc_ci95"] = [ci["lo"], ci["hi"]]
     out["hadb_to_champ"] = m_hc
     print(f"  HADB -> CHAMP {m_hc['auc_roc']:.4f} "
           f"[{m_hc['auc_roc_ci95'][0]:.4f}, {m_hc['auc_roc_ci95'][1]:.4f}]")
@@ -109,8 +114,8 @@ def main() -> None:
     fitted_c = clone(mc).fit(Xc, yc)
     p_ch = fitted_c.predict_proba(Xh)[:, 1]
     m_ch = compute_metrics(yh, p_ch)
-    lo, hi = bootstrap_ci(yh, p_ch, "auc_roc", n_boot=2000)
-    m_ch["auc_roc_ci95"] = [round(float(lo), 4), round(float(hi), 4)]
+    ci = bootstrap_ci(yh, p_ch, "auc_roc", n_boot=2000)
+    m_ch["auc_roc_ci95"] = [ci["lo"], ci["hi"]]
     out["champ_to_hadb"] = m_ch
     print(f"  CHAMP -> HADB {m_ch['auc_roc']:.4f} "
           f"[{m_ch['auc_roc_ci95'][0]:.4f}, {m_ch['auc_roc_ci95'][1]:.4f}]")
@@ -121,6 +126,92 @@ def main() -> None:
         "champ_to_hadb": round(out["within_hadb"]["auc_roc"]
                                - m_ch["auc_roc"], 4),
     }
+
+    # -- the transfer numbers above are contaminated, and here is why -------
+    # Transfer scoring *higher* than within-registry CV is not a success; it
+    # is a symptom. CHAMP and EAHAD are compiled from overlapping published
+    # literature, so a large share of CHAMP's variants are already in HADB and
+    # the "unseen" cohort is substantially memorised. The honest external
+    # number is the one measured on the disjoint remainder.
+    train_keys = hadb_variant_keys(h[h["y"].notna()])
+    champ_keys = champ_variant_keys(c.loc[cm])
+    shared_all = np.array([k in train_keys for k in champ_keys])
+
+    # The key needs a reference residue and a mature position to identify a
+    # variant. Frameshifts and large structural changes usually record neither,
+    # so they can never match and would be mislabelled "disjoint" -- which
+    # would compare a 77%-frameshift subset against a 60%-missense one and
+    # measure composition rather than novelty. Overlap is therefore assessed
+    # only on the substitution-like stratum where the key actually resolves.
+    resolvable = np.array([k[1] is not None and k[2] != "" for k in champ_keys])
+    shared = shared_all & resolvable
+    disjoint = resolvable & ~shared_all
+
+    out["registry_overlap"] = {
+        "champ_labelled_rows": int(len(champ_keys)),
+        "rows_with_a_resolvable_residue_key": int(resolvable.sum()),
+        "resolvable_and_present_in_hadb": int(shared.sum()),
+        "overlap_fraction_within_resolvable": round(
+            float(shared.sum() / max(resolvable.sum(), 1)), 4),
+        "resolvable_and_novel": int(disjoint.sum()),
+        "note": (
+            "Matched on (mutation class, mature residue, reference residue, "
+            "substituted residue). The two consortia curate the same "
+            "published literature, so overlap is expected -- and it means the "
+            "headline transfer figure is not an external result. Restricted "
+            "to substitution-like variants because the key cannot resolve a "
+            "frameshift; comparing across that boundary would measure "
+            "mutation-class composition instead of novelty."),
+    }
+    print(f"\nregistry overlap (substitution-like stratum): "
+          f"{shared.sum()}/{resolvable.sum()} "
+          f"({shared.sum() / max(resolvable.sum(), 1):.1%}) of CHAMP's "
+          f"resolvable variants are also in HADB")
+
+    if disjoint.sum() > 30 and 0 < yc[disjoint].mean() < 1:
+        m_sh = compute_metrics(yc[shared], p_hc[shared])
+        m_dis = compute_metrics(yc[disjoint], p_hc[disjoint])
+        ci_d = bootstrap_ci(yc[disjoint], p_hc[disjoint], "auc_roc", n_boot=2000)
+        m_dis["auc_roc_ci95"] = [ci_d["lo"], ci_d["hi"]]
+        out["hadb_to_champ_shared_only"] = m_sh
+        out["hadb_to_champ_novel_only"] = m_dis
+        out["contamination_effect"] = {
+            "auc_on_variants_hadb_had_seen": m_sh["auc_roc"],
+            "auc_on_variants_novel_to_hadb": m_dis["auc_roc"],
+            "difference": round(m_sh["auc_roc"] - m_dis["auc_roc"], 4),
+            "prevalence_shared": round(float(yc[shared].mean()), 4),
+            "prevalence_novel": round(float(yc[disjoint].mean()), 4),
+            "reading": (
+                "Both strata are substitution-like, so composition is held "
+                "roughly fixed and the gap is attributable to familiarity "
+                "rather than to mutation class. The novel-variant figure is "
+                "the external result this project claims."),
+        }
+        print(f"  on variants HADB had seen  {m_sh['auc_roc']:.4f} "
+              f"(prevalence {yc[shared].mean():.3f})")
+        print(f"  on variants novel to HADB  {m_dis['auc_roc']:.4f} "
+              f"[{ci_d['lo']:.4f}, {ci_d['hi']:.4f}] "
+              f"(prevalence {yc[disjoint].mean():.3f})  <- external result")
+
+        # The novel stratum has a different prevalence and composition from
+        # CHAMP as a whole, so comparing it against whole-cohort CHAMP CV would
+        # be comparing two different questions. Scoring CHAMP's own
+        # cross-validated predictions on exactly these rows makes it a like-for
+        # -like contest: same patients, same labels, two training sources.
+        champ_oof = np.full(len(yc), np.nan)
+        for tr, te in champ_folds:
+            mm = clone(mc)
+            mm.fit(Xc.iloc[tr], yc[tr])
+            champ_oof[te] = mm.predict_proba(Xc.iloc[te])[:, 1]
+        m_own = compute_metrics(yc[disjoint], champ_oof[disjoint])
+        out["champ_own_cv_on_the_same_novel_rows"] = m_own
+        out["contamination_effect"]["champ_own_cv_on_novel_rows"] = \
+            m_own["auc_roc"]
+        out["contamination_effect"]["hadb_advantage_on_novel_rows"] = round(
+            m_dis["auc_roc"] - m_own["auc_roc"], 4)
+        print(f"  CHAMP's own CV on those same rows  {m_own['auc_roc']:.4f} "
+              f"-> HADB training is worth "
+              f"{m_dis['auc_roc'] - m_own['auc_roc']:+.4f} on identical rows")
 
     # -- what relabelling unrecorded outcomes does -------------------------
     # Same fitted model, same variants; only the label convention changes.

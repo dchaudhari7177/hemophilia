@@ -128,17 +128,43 @@ def main() -> None:
     variant_auc = oof_auc(model, agg.reset_index(drop=True), y_v,
                           grouped_folds(y_v, g_v))
 
+    # How often do two patients carrying the same variant actually disagree?
+    # This is the quantity the variant-level framing assumes away.
+    multi = per_variant[per_variant["known"] >= 2]
+    discordant = ((multi["pos"] > 0) & (multi["pos"] < multi["known"])).sum()
+    n_multi = int(len(multi))
+    records_in_discordant = int(
+        multi.loc[(multi["pos"] > 0) & (multi["pos"] < multi["known"]),
+                  "known"].sum())
+
     out["C_variant_level_aggregation"] = {
         "n_rows_patient_level": int(len(cohort)),
         "n_rows_variant_level": int(len(agg)),
         "auc_patient_level": round(honest, 4),
         "auc_variant_level_majority_vote": round(variant_auc, 4),
+        "variants_with_2plus_recorded_outcomes": n_multi,
+        "of_those_discordant": int(discordant),
+        "discordance_rate": round(float(discordant / max(n_multi, 1)), 4),
+        "patient_records_inside_discordant_variants": records_in_discordant,
         "finding": (
-            "Collapsing to one row per variant throws away 2,323 patient "
-            "observations and the per-patient factor level that goes with "
-            "them. Two patients carrying the same variant genuinely differ in "
-            "outcome, and a majority vote deletes that variation rather than "
-            "modelling it."),
+            "The variant-level score is HIGHER, and it would be dishonest to "
+            "present that as a loss. The two numbers are not comparable: they "
+            "use a different unit of analysis, a different label and a "
+            "different n. Predicting a variant's modal outcome is an easier "
+            "problem than predicting one patient's -- averaging features "
+            "across a variant's records cancels measurement noise, and "
+            "recurrent well-characterised variants dominate the row set."),
+        "why_patient_level_is_still_the_right_unit": (
+            "It answers the question a clinician actually asks. Of the "
+            f"{n_multi} variants with two or more recorded outcomes, "
+            f"{discordant} ({discordant / max(n_multi, 1):.1%}) are "
+            "discordant -- patients carrying the identical variant who "
+            "differ in whether they developed an inhibitor, spanning "
+            f"{records_in_discordant} records. A majority vote assigns every "
+            "one of those patients the same prediction and is simply wrong "
+            "for the minority, and the variant-level framing cannot use the "
+            "per-patient factor level that this dataset was added to supply. "
+            "A higher AUC on an easier question is not a better tool."),
     }
 
     out["elapsed_seconds"] = round(time.time() - t0, 1)

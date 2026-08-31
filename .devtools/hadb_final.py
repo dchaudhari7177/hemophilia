@@ -160,10 +160,41 @@ def main() -> None:
     print(f"held-out AUC {results['test_youden']['auc_roc']:.4f} "
           f"(n={len(yte)}, prevalence {yte.mean():.3f})")
 
-    lo, hi = bootstrap_ci(yte, cal_te, "auc_roc", n_boot=2000)
-    ci = {"auc_roc_ci95": [round(float(lo), 4), round(float(hi), 4)]}
-    lo_pr, hi_pr = bootstrap_ci(yte, cal_te, "auc_pr", n_boot=2000)
-    ci["auc_pr_ci95"] = [round(float(lo_pr), 4), round(float(hi_pr), 4)]
+    auc_ci = bootstrap_ci(yte, cal_te, "auc_roc", n_boot=2000)
+    pr_ci = bootstrap_ci(yte, cal_te, "auc_pr", n_boot=2000)
+    ci = {
+        "auc_roc_ci95": [auc_ci["lo"], auc_ci["hi"]],
+        "auc_pr_ci95": [pr_ci["lo"], pr_ci["hi"]],
+    }
+    print(f"  95% CI [{auc_ci['lo']:.4f}, {auc_ci['hi']:.4f}]")
+
+    # A single 20% split holds 974 records and about 159 positives, so its AUC
+    # carries roughly +/-0.04 of sampling noise -- too wide to be the headline.
+    # The primary generalisation estimate is therefore repeated variant-grouped
+    # CV over the whole labelled cohort, and the held-out figure above is the
+    # independent confirmation that nothing was tuned into that estimate.
+    print("\nrepeated variant-grouped CV over the full labelled cohort:")
+    repeated = []
+    for seed in (42, 202, 7):
+        seed_folds = grouped_folds(cohort.y, cohort.groups, random_state=seed)
+        seed_oof = np.full(len(cohort.y), np.nan)
+        for tr, te in seed_folds:
+            fe = RankEnsemble({n: clone(m) for n, m in members.items()})
+            fe.fit(cohort.X.iloc[tr], cohort.y[tr])
+            seed_oof[te] = fe.decision_scores(cohort.X.iloc[te])
+        a = float(compute_metrics(cohort.y, seed_oof)["auc_roc"])
+        repeated.append(a)
+        print(f"  seed {seed}: {a:.4f}")
+    full_cv = {
+        "auc_roc_mean": round(float(np.mean(repeated)), 4),
+        "auc_roc_std": round(float(np.std(repeated)), 4),
+        "auc_roc_values": [round(v, 4) for v in repeated],
+        "n": int(len(cohort.y)),
+        "note": ("5-fold StratifiedGroupKFold by mut_id, 3 seeds, whole "
+                 "labelled cohort. This is the headline estimate; the "
+                 "single held-out split is the independent check."),
+    }
+    print(f"  mean {full_cv['auc_roc_mean']:.4f} +/- {full_cv['auc_roc_std']:.4f}")
 
     # -- what the clinical layer is worth on the held-out set -------------
     genomic = build_cohort(include_clinical=False, include_context=False)
@@ -187,6 +218,7 @@ def main() -> None:
         "ensemble_members": list(members),
         "thresholds": {k: round(v, 4) for k, v in thresholds.items()},
         "train_oof": train_oof_metrics,
+        "repeated_full_cohort_cv": full_cv,
         **results,
         "confidence_intervals": ci,
         "genomic_only_test": compute_metrics(yte, g_prob),
@@ -195,9 +227,17 @@ def main() -> None:
         "decision_curve": decision_curve(yte, cal_te),
         "elapsed_seconds": round(time.time() - t0, 1),
     }
+    def jsonable(o):
+        """numpy scalars and arrays are not JSON types; curves are arrays."""
+        if isinstance(o, np.ndarray):
+            return o.tolist()
+        if isinstance(o, np.generic):
+            return o.item()
+        raise TypeError(f"not serialisable: {type(o).__name__}")
+
     REPORTS.mkdir(exist_ok=True)
     (REPORTS / "hadb_final.json").write_text(json.dumps(payload, indent=2,
-                                                        default=float))
+                                                        default=jsonable))
     np.savez(REPORTS / "hadb_test_predictions.npz",
              y_true=yte, prob_cal=cal_te, prob_raw=raw_te, prob_genomic=g_prob)
 

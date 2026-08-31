@@ -20,6 +20,10 @@
       <li><span>Held-out n</span><strong>{{ metrics.n_test }}</strong></li>
     </ul>
     {% endif %}
+    <p class="sub">
+      <a href="{{ url_for('hadb_index') }}">v2: patient-level model (EAHAD/HADB) →</a>
+      — adds the patient's own factor level and severity, and scores higher.
+    </p>
   </div>
 </header>
 
