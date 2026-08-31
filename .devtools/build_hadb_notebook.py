@@ -89,9 +89,9 @@ sys.path.insert(0, '.')
 warnings.filterwarnings('ignore')
 
 import numpy as np, pandas as pd
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+%matplotlib inline
+plt.rcParams['figure.dpi'] = 110
 pd.set_option('display.width', 170)
 pd.set_option('display.max_columns', 60)
 
