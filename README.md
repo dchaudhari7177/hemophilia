@@ -36,6 +36,43 @@ it has never seen.
 
 ---
 
+## Stage 2 — patient-level modelling (current)
+
+Stage 1 established the honest ceiling of *genotype-only* data: **AUC
+0.74–0.75**. That was a limitation of the data, not of the modelling — CHAMP is
+a catalogue of variants, with no per-patient factor level, antigen or CRM
+typing.
+
+The **EAHAD/HADB cohort** (Blood Adv. 2024) supplies exactly that layer: its
+`mmc3` table is one row per *patient*, 10,064 allele reports of which **4,966
+carry a recorded inhibitor outcome** at 16.8% prevalence, each with the
+individual's own baseline FVIII activity and clinical severity.
+
+> ### AUC-ROC 0.7861 ± 0.0040
+> repeated 5-fold cross-validation, grouped by variant, n = 4,966
+
+| evidence | result |
+|---|---|
+| genomic-only rung of the ablation | **0.7417** — independently reproduces the CHAMP ceiling on a different registry |
+| patient clinical layer adds | +0.023 |
+| shuffled-label control | **0.5042** (stage 1's CHAMP pipeline hit **1.000** here) |
+| leak closed by variant grouping | 0.032 AUC, paid rather than banked |
+| study-grouped CV | 0.7797 — holds up in an unseen treatment centre |
+| external, novel CHAMP variants | **0.8513** [0.819, 0.881] |
+| CHAMP's own CV on those same rows | 0.6237 — patient-level training is worth **+0.228** |
+| adding one leaked column (`inhibitor_positive_rate`) | 0.777 → **0.966** |
+
+Two experiments came out against what we expected — variant-level aggregation
+*gains* AUC rather than losing it, and cross-registry transfer initially scored
+implausibly high because **64.5% of CHAMP's variants are already in HADB**.
+Both are reported as they came out, with the corrections shown.
+
+**Read this next: [`docs/HADB_PATIENT_LEVEL.md`](docs/HADB_PATIENT_LEVEL.md).**
+**Notebook: [`Hemophilia_Capstone_HADB.ipynb`](Hemophilia_Capstone_HADB.ipynb).**
+**App: `python app.py`, then `/hadb`.**
+
+---
+
 ## What is new here
 
 | | Reference works | This project |
