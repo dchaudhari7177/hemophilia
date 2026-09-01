@@ -4,7 +4,7 @@ Two builds of the same paper.
 
 | File | What it is |
 |---|---|
-| `Chaudhari_FVIII_Inhibitor_IEEE.pdf` | Rendered PDF, 7 pages, produced from `paper_ieee.html` |
+| `Chaudhari_FVIII_Inhibitor_IEEE.pdf` | Rendered PDF, 6 pages, produced from `paper_ieee.html` |
 | `paper_ieee.html` | IEEEtran conference geometry reproduced in CSS |
 | `paper_ieee.tex` | IEEEtran LaTeX source — compile this for a submission-grade PDF |
 
@@ -27,10 +27,10 @@ pdflatex paper_ieee && pdflatex paper_ieee
 
 ## Length
 
-7 pages as rendered. Most IEEE conferences allow 6 pages plus one for
-references, so this is close but may need trimming depending on the venue.
-Sections VI-D (the CRM anomaly) and V-H (feature attribution) are the most
-compressible without losing an argument.
+**6 pages.** The body always fitted; the seventh page in the first build held
+only the trailing footnote block, which in IEEE style belongs on page 1. It is
+now a page-1 footnote (`\thanks` in the LaTeX source), so no argument was cut
+to reach the limit.
 
 ## Before submitting
 
@@ -53,6 +53,6 @@ citation is propagated.
 
 The HTML disables ligatures deliberately (`font-variant-ligatures: none`).
 Times emits U+FB01 for "fi", which extracts as a corrupt glyph and breaks text
-search and plagiarism-check tooling. Verified after each render: 7 pages, zero
-U+FB00–FB06 characters, and all eight numbered headings extracting in
+search and plagiarism-check tooling. Verified after each render: 6 pages, zero
+U+FB00–FB06 characters, zero U+FFFD, and all eight numbered headings
 monotonic document order.
