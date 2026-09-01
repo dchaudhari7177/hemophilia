@@ -114,6 +114,147 @@ print('cached reports loaded:',
 
 # ---------------------------------------------------------------------------
 md("""
+---
+
+## Headline
+
+Two numbers, and the integrity checks that make them worth reading. Everything
+below this panel is the derivation; this is the summary.
+""")
+
+code("""
+from src.hadb_train import build_cohort, holdout_split, grouped_folds
+from src.hadb import FORBIDDEN, build_features, load_hadb
+
+cohort = build_cohort()
+train_mask, test_mask = holdout_split(cohort)
+fc  = final['repeated_full_cohort_cv']
+acc = final['test_accuracy_max']
+bal = final['test_youden']
+
+print('=' * 68)
+print('DISCRIMINATION  (threshold-free, the headline)')
+print('=' * 68)
+print(f"  AUC-ROC            {fc['auc_roc_mean']:.4f} +/- {fc['auc_roc_std']:.4f}")
+print(f"                     repeated variant-grouped CV, n = {fc['n']:,}")
+print(f"  held-out check     {bal['auc_roc']:.4f}  CI95 "
+      f"{final['confidence_intervals']['auc_roc_ci95']}")
+print()
+print('=' * 68)
+print('ACCURACY  (only meaningful beside its baseline)')
+print('=' * 68)
+print(f"  best accuracy      {acc['accuracy']:.4%}   at threshold {acc['threshold']:.3f}")
+print(f"  majority baseline  {acc['majority_baseline_accuracy']:.4%}   "
+      f"(predict 'no inhibitor' for everyone)")
+print(f"  ---------------------------------")
+print(f"  gain over nothing  {acc['accuracy_over_baseline']:+.4%}")
+print(f"  sensitivity there  {acc['sensitivity']:.1%}  <- finds 1 inhibitor patient in 4")
+print()
+print(f"  the point we ship  {bal['accuracy']:.1%} accuracy, {bal['sensitivity']:.1%} "
+      f"sensitivity, {bal['npv']:.1%} NPV")
+""")
+
+md("""
+### Verifying "no oversampling, no leakage"
+
+Those are claims. Below they are checks, run against the live pipeline rather
+than quoted from the prose.
+
+The specific failure being ruled out is the one that produced the reference
+results this project exists to correct: random over-sampling applied *before*
+the train/test split duplicates minority rows verbatim, so a large share of the
+test set is byte-identical to rows the model trained on. That protocol reported
+95.3% accuracy and 0.994 AUC on the CHAMP data.
+""")
+
+code("""
+import numpy as np, pandas as pd
+
+checks = []
+
+# --- 1. no oversampling: row count and class balance are the observed ones ---
+n_labelled = int(load_hadb()['y'].notna().sum())
+checks.append((
+    'row count is the observed one, nothing synthesised or duplicated',
+    len(cohort) == n_labelled,
+    f'{len(cohort):,} modelled == {n_labelled:,} labelled records'))
+
+checks.append((
+    'class balance left exactly as observed',
+    abs(cohort.prevalence - cohort.y.mean()) < 1e-12,
+    f'prevalence {cohort.prevalence:.4f} -- no minority class inflated to 50%'))
+
+# --- 2. the over-sampling signature: identical rows on both sides of the split
+# This is the direct test. Under ROS-before-split, ~50% of test rows are
+# byte-identical to a training row. Hash every row and intersect.
+h_tr = pd.util.hash_pandas_object(cohort.X.loc[train_mask], index=False)
+h_te = pd.util.hash_pandas_object(cohort.X.loc[test_mask], index=False)
+dup = float(h_te.isin(set(h_tr)).mean())
+checks.append((
+    'test rows byte-identical to a training row',
+    dup < 0.05,
+    f'{dup:.2%} of the held-out set (the leaky protocol produces ~50%)'))
+
+# --- 3. no variant straddles any boundary -----------------------------------
+checks.append((
+    'no variant appears on both sides of the held-out split',
+    not (set(cohort.groups[train_mask]) & set(cohort.groups[test_mask])),
+    f'{len(set(cohort.groups[train_mask]) & set(cohort.groups[test_mask]))} shared mut_id'))
+
+straddle = sum(len(set(cohort.groups[tr]) & set(cohort.groups[te]))
+               for tr, te in grouped_folds(cohort.y, cohort.groups))
+checks.append((
+    'no variant straddles any cross-validation fold',
+    straddle == 0,
+    f'{straddle} shared mut_id across all 5 folds'))
+
+# --- 4. no outcome-derived column reached the matrix -------------------------
+leaked = set(cohort.X.columns) & FORBIDDEN
+checks.append((
+    'no outcome-derived column in the design matrix',
+    not leaked,
+    f'{len(FORBIDDEN)} columns quarantined in hadb.FORBIDDEN, {len(leaked)} present'))
+
+# --- 5. no near-identifier feature ------------------------------------------
+worst, worst_r = None, 0.0
+for col in cohort.X.columns:
+    v = cohort.X[col]
+    if v.notna().sum() < 10 or v.nunique(dropna=True) < 2:
+        continue
+    r = abs(np.corrcoef(v.fillna(v.median()), cohort.y)[0, 1])
+    if r > worst_r:
+        worst, worst_r = col, r
+checks.append((
+    'no single feature is a proxy for the label',
+    worst_r < 0.95,
+    f'strongest is {worst} at |r| = {worst_r:.3f}'))
+
+# --- 6. the shuffled-label control ------------------------------------------
+sh = ablation['shuffled_label_control']['auc_roc_mean']
+checks.append((
+    'model learns nothing from permuted labels',
+    abs(sh - 0.5) < 0.05,
+    f'AUC {sh:.4f} on shuffled outcomes (stage 1 scored 1.000 here)'))
+
+# --- report -----------------------------------------------------------------
+width = max(len(name) for name, _, _ in checks)
+print(f"{'CHECK':<{width}}  RESULT   DETAIL")
+print('-' * (width + 60))
+for name, ok, detail in checks:
+    print(f"{name:<{width}}  {'PASS' if ok else 'FAIL':<7}  {detail}")
+print('-' * (width + 60))
+print(f"{sum(ok for _, ok, _ in checks)}/{len(checks)} checks pass")
+assert all(ok for _, ok, _ in checks), 'integrity check failed'
+""")
+
+md("""
+The imbalance is handled with **class weights only** — `class_weight='balanced'`
+on the forests, `scale_pos_weight` on the boosted trees. No SMOTE, no random
+over-sampling, no under-sampling, at any point in the pipeline. `imbalanced-learn`
+is not a dependency of this project.
+
+---
+
 ## 1. The dataset
 
 The Blood Advances 2024 supplement ships two tables that sit at different
