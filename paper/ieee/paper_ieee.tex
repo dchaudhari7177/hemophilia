@@ -1,0 +1,793 @@
+% =============================================================================
+%  IEEEtran conference manuscript.
+%
+%  Compiles as-is on Overleaf (select "IEEE Conference" or just upload this
+%  file; IEEEtran.cls ships with TeX Live). Locally:
+%      pdflatex paper_ieee && pdflatex paper_ieee
+%  Two passes are needed for the table cross-references.
+%
+%  Every numeric result below is taken from the committed artefacts in
+%  reports/*.json of github.com/dchaudhari7177/hemophilia and is reproducible
+%  from the released scripts.
+% =============================================================================
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage[table]{xcolor}
+\usepackage{url}
+
+\sisetup{detect-all, table-number-alignment = right}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{The Genotype-Only Ceiling for Factor VIII Inhibitor\\Risk Prediction: Patient-Level Modelling and\\Cross-Registry Validation in Haemophilia A}
+
+\author{\IEEEauthorblockN{Dipak Chaudhari, Tejas Nagmote, Sneha A, and Varsha P}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{PES University}\\
+Bengaluru, India \\
+Project PW\_GRS\_01 \quad Guide: Prof. Gayathri R S}}
+
+\maketitle
+
+\begin{abstract}
+Neutralising alloantibodies (``inhibitors'') against infused factor VIII
+(FVIII) develop in a substantial minority of people with haemophilia A and are
+the most consequential complication of replacement therapy, yet no
+risk-stratification tool is in routine pre-treatment clinical use.
+Machine-learning studies on public \textit{F8} variant registries report
+accuracies of 97\% and above. We show that such figures are not predictive
+performance, establish what is genuinely achievable, and determine whether the
+limiting factor is the model or the data. Using the EAHAD/HADB \textit{F8}
+resource, whose allele-report table contains one row per patient
+($n = 10{,}064$) rather than one row per variant, we assembled 4{,}966 records
+carrying a recorded inhibitor outcome across 2{,}643 variants and 342
+reporting studies. We engineered 95 mechanistic descriptors in six blocks and
+screened twelve model families. All partitions were grouped by variant, no
+resampling was applied at any stage, and unrecorded outcomes were retained as
+unlabelled rather than treated as negatives. A rank-averaged ensemble achieved
+AUC-ROC $0.786 \pm 0.004$ under repeated variant-grouped cross-validation. The
+genomic-only rung of the feature ablation reached 0.742, independently
+reproducing a ceiling previously established on the CDC CHAMP registry;
+patient baseline phenotype contributed $+0.023$ AUC. Permuted labels gave
+0.504, ungrouped cross-validation inflated the score by 0.032, and a single
+outcome-derived column from a widely redistributed derived file moved AUC from
+0.777 to 0.966. Cross-registry transfer initially appeared to exceed
+within-registry performance; we traced this to 64.5\% variant overlap between
+CHAMP and EAHAD, and on genuinely novel variants obtained AUC 0.851 (95\% CI
+0.819--0.881) against 0.624 for CHAMP's own cross-validation on identical
+rows. Genotype-only prediction saturates near AUC 0.74 in two independently
+curated registries; because eleven model families span only 0.027 AUC, this is
+a property of the available data rather than of model capacity.
+\end{abstract}
+
+\begin{IEEEkeywords}
+haemophilia A, factor VIII inhibitors, \textit{F8}, clinical risk prediction,
+data leakage, external validation, probability calibration
+\end{IEEEkeywords}
+
+% =============================================================================
+\section{Introduction}
+
+Haemophilia A is an X-linked bleeding disorder caused by variants in
+\textit{F8}, managed by replacement of the deficient coagulation factor VIII.
+In a substantial minority of patients the immune system recognises infused
+FVIII as foreign and produces neutralising alloantibodies, termed inhibitors.
+Once inhibitors develop, replacement therapy loses efficacy, bleeding becomes
+markedly harder to control, and the patient requires immune tolerance
+induction --- a prolonged and expensive protocol that does not always succeed.
+
+Inhibitor development is concentrated in the first fifty exposure days. This
+makes it, in principle, an ideal target for pre-treatment risk stratification:
+the window in which the outcome occurs is known and short, and the clinical
+response to elevated risk is available and low-cost. Despite this, no
+genotype-based stratification tool is in routine clinical use.
+
+The mechanistic basis is well established. Variant classes that abolish
+endogenous FVIII protein --- large deletions, nonsense variants and
+frameshifts --- carry markedly higher inhibitor incidence than missense
+variants, which permit expression of a full-length, if dysfunctional, protein
+\cite{gouw}. The immunological interpretation is that a patient who has never
+expressed FVIII has established no central tolerance to it, so infused factor
+is encountered as a wholly foreign antigen.
+
+Several groups have applied machine learning to public \textit{F8} registries,
+most prominently the CDC Hemophilia A Mutation Project (CHAMP) list
+\cite{champ}. Reported accuracies reach 97.37\%~\cite{singh}. If reproducible
+as \textit{predictive} performance, such figures would be clinically decisive.
+They are not reproducible. Prior work by this group established that these
+estimates arise from three specific preprocessing choices, and placed the
+honest ceiling of genotype-only data near AUC 0.74--0.75. That finding raises
+the question this paper addresses: \textbf{is that ceiling a limitation of the
+modelling, or of the data?}
+
+CHAMP is a catalogue of \textit{variants}. It records whether an inhibitor has
+ever been reported for a variant, but carries no per-patient factor activity,
+antigen measurement, or cross-reacting material (CRM) typing. If the ceiling
+reflects missing patient-level information rather than insufficient model
+capacity, a resource supplying that information should move it.
+
+\subsection{Contributions}
+\begin{enumerate}
+\item An inhibitor-risk model built at the \textit{patient level} on the
+      EAHAD/HADB resource --- one observation per allele report rather than
+      per variant --- reaching AUC $0.786 \pm 0.004$ under strict
+      variant-grouped validation. We are not aware of prior patient-level
+      modelling on this resource but make no priority claim, as no systematic
+      review was conducted.
+\item Evidence that the genotype-only ceiling of approximately 0.74 replicates
+      on an independently curated registry, establishing it as a property of
+      the data class rather than an artefact of one dataset or pipeline.
+\item Quantification of three leakage mechanisms --- outcome-derived features,
+      relabelling of unrecorded outcomes, and ungrouped partitioning --- with
+      the AUC attributable to each.
+\item Identification and quantification of 64.5\% variant overlap between
+      CHAMP and EAHAD, which invalidates naive cross-registry validation in
+      this domain, together with a corrected external estimate.
+\item Two experiments whose outcomes contradicted our hypotheses, reported
+      with the claims revised rather than the framing.
+\item A bounded calibration procedure preventing the deployed model from
+      emitting risk estimates the underlying cohort cannot support.
+\end{enumerate}
+
+% =============================================================================
+\section{Related Work and the Reproducibility Problem}
+
+Published analyses of \textit{F8} registries share a common design: rows are
+variants, features are registry columns (often label-encoded directly), the
+outcome is a reported inhibitor history, and evaluation is a stratified split
+or $k$-fold cross-validation. Three properties of this design account for the
+reported performance.
+
+\textit{Identifier features.} Columns such as the HGVS cDNA description are
+near-unique per row. Label-encoded, they function as primary keys. In our prior
+work a random forest given such a column attained training AUC 1.000
+\textit{with the outcome labels randomly permuted} --- the diagnostic
+signature of an identifier rather than a predictor.
+
+\textit{Relabelling of unrecorded outcomes.} Registry inhibitor fields are
+tri-state: reported positive, reported negative, and not reported. Mapping
+``not reported'' to negative converts absence of ascertainment into evidence of
+absence. In CHAMP this affects 1{,}744 of 4{,}040 rows and reduces apparent
+prevalence from 20.1\% to 11.4\%, raising the majority-class baseline against
+which accuracy is measured.
+
+\textit{Resampling before partitioning.} Random over-sampling duplicates
+minority rows verbatim. Applied before the train/test split, it places
+byte-identical copies of training rows into the test set. The reported 97.37\%
+accuracy \cite{singh} is obtained under this protocol.
+
+These are not exotic failures. They are the default outcome of applying a
+standard tabular machine-learning recipe to a curated biological registry. Our
+contribution is to measure each rather than to assert it.
+
+% =============================================================================
+\section{Data}
+
+\subsection{The EAHAD/HADB Cohort}
+The resource \cite{eahad} is distributed as two supplementary tables at
+different levels of analysis: a variant table (6{,}211 rows: mutation class,
+protein consequence, FVIII domain, exon, codon and nucleotide change) and an
+allele-report table (10{,}064 rows) carrying individual baseline FVIII
+activity, clinical severity, antigen, CRM type, reporting centre and source
+publication alongside the inhibitor outcome. The latter is the layer absent
+from CHAMP, and it determines the design of this study: the unit of analysis
+is the patient, with variant annotation joined on the variant identifier.
+
+\subsection{Outcome Definition}
+The inhibitor field takes eight surface forms normalising to three states:
+4{,}130 negative, 836 positive, and 5{,}098 unrecorded. Unrecorded outcomes
+were retained as unlabelled and never mapped to negative. The analytic cohort
+is therefore \textbf{4{,}966 records at 16.83\% prevalence}, which falls within
+the published range for haemophilia A without adjustment --- itself evidence
+that the tri-state field is being read correctly.
+
+\subsection{Cohort Characteristics}
+
+\begin{table}[!t]
+\caption{Baseline characteristics of the 4,966 labelled allele reports
+(836 inhibitor-positive, 16.8\%), across 2,643 variants and 342 reporting
+studies. Median records per variant 1, maximum 104.}
+\label{tab:cohort}
+\centering
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Characteristic & $n$ & \% & Inh.\ rate \\
+\midrule
+\multicolumn{4}{l}{\textit{Mutation class}} \\
+Missense              & 2,677 & 53.9 & 8.3\% \\
+Frameshift            & 1,072 & 21.6 & 22.4\% \\
+Nonsense              & 594   & 12.0 & 30.1\% \\
+Splice                & 250   & 5.0  & 17.2\% \\
+Large deletion        & 237   & 4.8  & \textbf{51.9\%} \\
+In-frame              & 97    & 2.0  & 27.8\% \\
+Silent                & 30    & 0.6  & 3.3\% \\
+\addlinespace
+\multicolumn{4}{l}{\textit{Clinical severity}} \\
+Severe                & 2,718 & 54.7 & 24.1\% \\
+Moderate              & 774   & 15.6 & 8.9\% \\
+Mild                  & 1,392 & 28.0 & 6.2\% \\
+Unknown               & 82    & 1.7  & 29.3\% \\
+\addlinespace
+\multicolumn{4}{l}{\textit{Baseline FVIII activity (IU/dL)}} \\
+$<1$                  & 2,356 & 47.4 & 20.5\% \\
+1--2                  & 154   & 3.1  & 8.4\% \\
+2--5                  & 610   & 12.3 & 7.4\% \\
+5--15                 & 555   & 11.2 & 7.6\% \\
+15--40                & 415   & 8.4  & 4.1\% \\
+$>40$                 & 30    & 0.6  & 0.0\% \\
+Not measured          & 846   & 17.0 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Median measured activity was 0.50 IU/dL (IQR 0.50--5.00); 1.00 among
+inhibitor-negative and 0.50 among inhibitor-positive records. FVIII antigen was
+measured in only 649 records (13.1\%) and CRM type recorded in 1{,}312
+(26.4\%). The monotone gradient across mutation classes and across severity
+strata (Table~\ref{tab:cohort}) reproduces established immunology and
+constitutes a prior check on label quality.
+
+\subsection{The CHAMP Comparison Cohort}
+For external validation we used the CDC CHAMP \textit{F8} variant list
+\cite{champ}: 4{,}040 variants, of which 2{,}296 carry a recorded outcome at
+20.1\% prevalence. CHAMP is variant-level and carries reported severity but no
+per-patient measurements.
+
+\subsection{Audit of Redistributed Derived Files}
+Two convenience files circulate alongside the raw supplement, prepared by
+merging and aggregating the two tables. Both reproduce, on this new dataset,
+the failure modes of Section~II. We audit them because they are the form in
+which many investigators will encounter this resource.
+
+\textit{Relabelling.} The machine-learning-ready file contains 3{,}706 variant
+rows, of which \textbf{1{,}063 carry a negative label} although no inhibitor
+outcome was ever recorded for that variant. Apparent prevalence falls from
+23.5\% (among variants actually followed up) to 13.3\%.
+
+\textit{Outcome-derived features.} The merged file exposes twelve columns in
+our forbidden set, including a per-variant inhibitor positive rate --- the
+outcome itself, aggregated over the very patient rows being predicted. Adding
+that single column to our design matrix moves AUC from \textbf{0.777 to
+0.966}, a change of $+0.189$, with no biological information added.
+
+% =============================================================================
+\section{Methods}
+
+\subsection{Feature Construction}
+Ninety-five numeric descriptors were derived in six declared blocks: genotype
+class (21), FVIII domain (16), protein position (13), residue chemistry (18)
+using Grantham distance \cite{grantham} and BLOSUM62 \cite{blosum}, patient
+clinical measurements (18), and reporting context (9). Every feature is either
+a property of the variant or a measurement recorded at diagnosis; none is
+derived from the outcome, and none is row-unique.
+
+Two engineering decisions required judgement. The curated CpG column is empty
+in this release, so the hotspot signature was derived from the nucleotide
+change, since C\textgreater T and G\textgreater A transitions are the
+deamination products of a methylated CpG dinucleotide. The factor-level field
+mixes plain numerals, left-censored readings, ranges and annotated entries;
+censored values were assigned half the stated bound, the conventional
+substitution for a left-censored assay reading, which preserves the ordering of
+a censored value below the corresponding observed one. Missingness is encoded
+explicitly through indicator features, so median imputation does not silently
+create a measurement indistinguishable from an observed one.
+
+\subsection{Validation Protocol}
+2{,}643 variants generate 4{,}966 records, with recurrent variants contributing
+up to 104 records each. Under random partitioning a model can memorise a
+variant during training and be scored on that same variant at test --- the
+patient-level form of the identifier leak described in Section~II.
+\textbf{Every partition in this study is grouped by variant.}
+
+As a stricter test of transportability we repeat validation grouping by source
+publication. Reporting centres differ in inhibitor screening practice and in
+which patients they publish, so study-grouped performance estimates behaviour
+in a centre not represented in training.
+
+Class imbalance is addressed with class weighting exclusively. No
+over-sampling, under-sampling or synthetic minority generation is applied at
+any stage.
+
+Because a single 20\% held-out partition contains approximately 159 positive
+records and carries roughly $\pm 0.04$ of sampling noise, the primary estimate
+is five-fold variant-grouped cross-validation repeated over three seeds on the
+entire labelled cohort. A single grouped held-out partition, scored once after
+model and thresholds were fixed, serves as an independent check.
+
+\subsection{Models and Ensembling}
+Twelve families were screened, spanning linear, kernel, neighbour, forest,
+boosting and neural approaches, including XGBoost \cite{xgboost} and LightGBM
+\cite{lightgbm}. Leading families were tuned by randomised search over 25 draws
+scored on precomputed grouped folds.
+
+The \texttt{scikit-learn} stacking meta-estimator cannot be used in this
+setting: it generates internal cross-validation folds at random with no
+mechanism to propagate grouping, placing the same variant on both sides of the
+meta-learner's training boundary. In our screen this produced an inverted model
+(AUC 0.241). We therefore construct the out-of-fold matrix manually from
+grouped folds and compare probability averaging, rank averaging, logistic
+stacking, and greedy forward selection with replacement \cite{caruana}.
+
+Members are combined by rank average rather than probability average, because
+members are calibrated on different scales. Ranks are computed against the
+training score distribution stored at fit time rather than within the scoring
+batch, so an individual patient's estimate is independent of which other
+patients are scored alongside them.
+
+\subsection{Calibration}
+Probabilities are calibrated by isotonic regression \cite{isotonic} fitted on
+training out-of-fold scores only. Unmodified isotonic regression returned
+exactly 1.0 for the highest-scoring inputs, because its terminal step covered a
+small, entirely positive training bin. A deployed tool reporting
+\textit{certainty} of inhibitor development is not supportable: the
+highest-risk observed stratum develops inhibitors at 53.1\%, and the highest
+calibration decile at 59.6\%.
+
+We therefore constrain the calibrator. Training scores are partitioned into
+deciles, each decile's positive rate is Laplace-smoothed as $(k+1)/(n+2)$, and
+predictions are clipped to the interval spanned by those smoothed rates ---
+$[0.025, 0.520]$ in this cohort. The transformation is monotone, so ranking and
+hence AUC are unchanged; only the reported magnitude is constrained to what the
+cohort supports.
+
+\subsection{Statistical Analysis}
+Discrimination is reported as AUC-ROC and AUC-PR against the prevalence
+baseline. Uncertainty is estimated by stratified bootstrap over 2{,}000
+resamples. Paired model comparison uses DeLong's test \cite{delong}.
+Calibration is summarised by the Brier score and expected calibration error.
+Clinical utility is assessed by decision-curve net benefit \cite{dca}.
+Operating thresholds are selected on training folds by Youden's J
+\cite{youden}, by accuracy maximisation, and at fixed sensitivity targets.
+
+% =============================================================================
+\section{Results}
+
+\subsection{Model Screen}
+
+\begin{table}[!t]
+\caption{Twelve model families under five-fold variant-grouped
+cross-validation on the training partition ($n = 3{,}992$). The final row
+documents a methodological failure and is not a candidate model.}
+\label{tab:screen}
+\centering
+\footnotesize
+\begin{tabular}{lrrrr}
+\toprule
+Model & AUC-ROC & AUC-PR & Bal.\ acc. & Brier \\
+\midrule
+Extremely rand.\ trees   & 0.7778 & 0.4568 & 0.7183 & 0.1514 \\
+Random forest            & 0.7774 & 0.4615 & 0.7176 & 0.1363 \\
+LightGBM                 & 0.7745 & 0.4773 & 0.7065 & 0.1420 \\
+XGBoost                  & 0.7735 & 0.4678 & 0.7110 & 0.1559 \\
+Gradient boosting        & 0.7705 & 0.4769 & 0.7120 & 0.1165 \\
+Hist.\ grad.\ boosting   & 0.7682 & 0.4592 & 0.7010 & 0.1479 \\
+Multilayer perceptron    & 0.7622 & 0.4361 & 0.7105 & 0.1202 \\
+Elastic-net logistic     & 0.7572 & 0.4409 & 0.7002 & 0.1883 \\
+L2 logistic              & 0.7552 & 0.4372 & 0.6995 & 0.1887 \\
+SVM (RBF)                & 0.7551 & 0.3997 & 0.7018 & 0.1214 \\
+$k$-nearest neighbours   & 0.7507 & 0.4078 & 0.6907 & 0.1244 \\
+\addlinespace
+Stacking (ungrouped CV)  & 0.2412 & 0.1108 & 0.5019 & 0.3492 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The eleven valid families in Table~\ref{tab:screen} span 0.027 AUC. Model
+capacity is not the binding constraint on this problem --- a finding that
+recurs throughout. Tuning improved the leading families to 0.781--0.784. Greedy
+forward selection retained three members (XGBoost, extremely randomised trees,
+LightGBM) at out-of-fold AUC 0.7859; rank and mean averaging over all five
+tuned members gave 0.7860, and the three-member ensemble was retained for
+inference economy.
+
+\subsection{Feature Ablation}
+
+\begin{table}[!t]
+\caption{Contribution of each feature block under repeated variant-grouped
+cross-validation over three seeds.}
+\label{tab:ablation}
+\centering
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Rung & $k$ & AUC-ROC & $\Delta$ \\
+\midrule
+Genotype class only        & 21 & $0.7024 \pm .0013$ & --- \\
+$+$ FVIII domain           & 37 & $0.7261 \pm .0033$ & $+0.0237$ \\
+$+$ protein position       & 50 & $0.7372 \pm .0012$ & $+0.0111$ \\
+$+$ chemistry (all genomic)& 68 & $\mathbf{0.7417 \pm .0029}$ & $+0.0045$ \\
+$+$ patient phenotype      & 86 & $\mathbf{0.7645 \pm .0011}$ & $+0.0228$ \\
+$+$ reporting region       & 95 & $0.7779 \pm .0025$ & $+0.0134$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two findings follow from Table~\ref{tab:ablation}. First, the genomic rung
+reaches 0.7417. This reproduces the ceiling previously established on CHAMP ---
+a registry curated by a different consortium, from different patients, through
+an independently written feature pipeline. Two registries agreeing on where
+genotype-only information is exhausted is substantially stronger evidence than
+either alone, and reframes the ceiling from a limitation of one analysis into a
+property of this class of data. Second, patient baseline phenotype contributes
+$+0.023$ AUC, confirming the hypothesis that motivated this study.
+
+\subsection{Leakage Controls}
+
+\begin{table}[!t]
+\caption{Controls bounding the primary result.}
+\label{tab:controls}
+\centering
+\footnotesize
+\begin{tabular}{lr}
+\toprule
+Control & Result \\
+\midrule
+Permuted labels (prior work: 1.000)       & 0.5042 \\
+Ungrouped random CV                       & 0.8098 \\
+Variant-grouped CV                        & \textbf{0.7779} \\
+Study-grouped CV                          & $0.7797 \pm .0004$ \\
+Test rows identical to a training row     & 1.03\% \\
+Strongest feature--outcome $|r|$          & 0.247 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The 0.032 AUC forgone by grouping is of the same magnitude as the entire
+clinical-layer gain of 0.023, illustrating how readily a partitioning choice
+can be mistaken for a modelling advance. Random over-sampling before
+partitioning leaves roughly half the test set byte-identical to training rows;
+the observed 1.03\% reflects ordinary coincidence between patients who share a
+mutation class, a severity band and the same missing measurements.
+
+\subsection{Primary Result and Operating Characteristics}
+Under repeated variant-grouped cross-validation over the full labelled cohort
+($n = 4{,}966$), the ensemble achieved \textbf{AUC-ROC $0.7861 \pm 0.0040$}
+(per-seed 0.7870, 0.7808, 0.7905).
+
+On the held-out partition ($n = 974$, prevalence 16.3\%): AUC-ROC 0.7451
+(95\% CI 0.6927--0.7890); AUC-PR 0.4552 (0.3883--0.5295) against a no-skill
+baseline of 0.1632; Brier 0.114; expected calibration error 0.033. The
+cross-validated estimate lies within the held-out confidence interval.
+
+\begin{table*}[!t]
+\caption{Operating characteristics on the held-out partition ($n = 974$, 159
+positive). Majority-class baseline accuracy is 83.68\%. Thresholds were
+selected on training folds. The balanced and rule-out points are those at which
+the tool is specified; the accuracy-maximising point is reported for comparison
+only.}
+\label{tab:operating}
+\centering
+\footnotesize
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+Operating point & Threshold & Accuracy & Sensitivity & Specificity & PPV & NPV & MCC & TP & FP & FN & TN \\
+\midrule
+Accuracy-maximising          & 0.474 & 86.65\% & 25.8\% & 98.5\% & 77.4\% & 87.2\% & 0.396 & 41  & 12  & 118 & 803 \\
+Balanced (Youden's J)        & 0.181 & 76.69\% & 61.6\% & 79.6\% & 37.1\% & 91.4\% & 0.343 & 98  & 166 & 61  & 649 \\
+Rule-out (80\% sens.\ target)& 0.131 & 65.61\% & 74.2\% & 63.9\% & 28.6\% & 92.7\% & 0.285 & 118 & 294 & 41  & 521 \\
+Rule-out (90\% sens.\ target)& 0.083 & 49.38\% & 79.9\% & 43.4\% & 21.6\% & 91.7\% & 0.176 & 127 & 461 & 32  & 354 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Accuracy is reported only alongside its baseline. The accuracy-maximising
+threshold in Table~\ref{tab:operating} exceeds the no-skill baseline by 2.97
+percentage points while identifying 25.8\% of inhibitor-positive patients; it
+is the least clinically useful row in the table, and the one that an evaluation
+rubric specifying ``high accuracy'' would select. The tool is specified at the
+balanced and rule-out points, where negative predictive value exceeds 0.91.
+
+Decision-curve net benefit was 0.088 at a 10\% threshold probability (treat-all
+0.070) and 0.058 at 20\% (treat-all $-0.046$). The model exceeded both
+treat-all and treat-none strategies for threshold probabilities between 0.09
+and 0.52, covering 73\% of the swept range. Below a 9\% threshold, monitoring
+every patient is preferable and the model offers no advantage.
+
+Against a genomic-only model on the same held-out patients (AUC 0.7305), the
+full model's advantage of 0.0147 did not reach significance (DeLong $z = 1.06$,
+$p = 0.29$), which is expected at this sample size. The ablation in
+Table~\ref{tab:ablation}, estimated over the full cohort with repeated
+resampling, is the better-powered comparison.
+
+\subsection{Cross-Registry Validation and a Registry-Overlap Artefact}
+Projecting both registries into a 57-feature intersection, a model trained on
+HADB and applied to CHAMP without refitting scored AUC 0.879 --- exceeding
+CHAMP's own within-registry cross-validation of 0.725.
+
+A model applied to an unseen cohort should not outperform that cohort's own
+cross-validation. We treated this as a diagnostic rather than a result. CHAMP
+and EAHAD are both curated from the published literature, and they curate
+substantially the same publications. Matching on mutation class, mature
+residue, reference residue and substituted residue, \textbf{1{,}259 of 1{,}951
+(64.5\%)} of CHAMP's substitution-resolvable labelled variants are already
+present in HADB.
+
+One methodological subtlety governs this comparison. The matching key requires
+a reference residue and position, which frameshift and large structural
+variants do not provide. Left uncorrected, every frameshift is classified as
+novel by default, and the resulting comparison contrasts a 77\%-frameshift
+subset with a 60\%-missense subset, measuring mutation-class composition rather
+than novelty. Both strata are therefore restricted to substitution-like
+variants.
+
+\begin{table}[!t]
+\caption{Transfer from HADB to CHAMP, stratified by prior presence of the
+variant in the training registry.}
+\label{tab:transfer}
+\centering
+\footnotesize
+\begin{tabular}{lrrr}
+\toprule
+Stratum & $n$ & Prev. & AUC-ROC \\
+\midrule
+Present in HADB            & 1,259 & 0.137 & 0.9361 \\
+Novel to HADB              & 692   & 0.240 & \textbf{0.8513} \\
+Attributable contamination & ---   & ---   & 0.0848 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The corrected external estimate is AUC 0.8513 (95\% CI 0.8193--0.8807). On the
+identical 692 novel records, CHAMP's own cross-validated model achieved AUC
+0.6237. Training on 4{,}966 patient-level European records therefore predicted
+novel North American variants \textbf{0.2276 AUC better} than CHAMP predicted
+them from its own data --- independent confirmation, by a different route, of
+the ablation's conclusion that repeated patient-level observation constitutes
+richer supervision than a variant catalogue.
+
+\subsection{Reproduction of the Relabelling Effect}
+
+\begin{table}[!t]
+\caption{Identical fitted model and variant set; only the label convention
+differs.}
+\label{tab:relabel}
+\centering
+\footnotesize
+\begin{tabular}{lrrrrr}
+\toprule
+Label convention & $n$ & Prev. & Base & Acc. & AUC \\
+\midrule
+Recorded outcomes only        & 2,296 & 0.201 & 79.9\% & 80.1\% & 0.879 \\
+Unrecorded $\rightarrow$ neg. & 4,040 & 0.114 & \textbf{88.6\%} & 74.7\% & 0.855 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Discrimination does not improve under relabelling; AUC in fact declines. What
+changes is the accuracy obtainable \textit{without skill}, which rises from
+79.9\% to 88.6\%. A headline accuracy near 97\% is measured on a set whose
+no-skill baseline is already 88.6\%, and is approached by tuning the decision
+threshold toward the enlarged majority class.
+
+\subsection{Results Contrary to Hypothesis}
+We predicted that collapsing records to one row per variant would lose
+information. It scored \textit{higher}: 0.8038 against 0.7766. The two
+estimates are not comparable, differing in unit of analysis, label definition
+and sample size, and predicting a variant's \textit{modal} outcome is an easier
+problem than predicting an individual's, since feature averaging across a
+variant's records cancels measurement noise and well-characterised recurrent
+variants dominate the row set.
+
+The case for patient-level modelling therefore rests on a different
+measurement. Among the 537 variants with two or more recorded outcomes,
+\textbf{124 (23.1\%) are discordant} --- patients carrying an identical variant
+who differ in inhibitor outcome --- spanning 1{,}297 records. Aggregation
+assigns every such patient the same prediction and is necessarily wrong for the
+minority, and it cannot use per-patient factor activity at all. The second
+contrary result, naive cross-registry transfer overstating external validity,
+is detailed in Section~V-E.
+
+\subsection{Feature Attribution}
+Permutation importance on the held-out partition ranked severity ordinal
+(0.0084 AUC), East Asian reporting region (0.0073), nucleotide position
+(0.0046), log FVIII activity (0.0044) and multi-domain involvement (0.0043)
+highest. Aggregated by block: clinical 0.0287, position 0.0211, context 0.0148,
+chemistry 0.0116, domain 0.0088, genotype 0.0042.
+
+% =============================================================================
+\section{Discussion}
+
+\subsection{What Limits Performance}
+The evidence converges on a single conclusion: the constraint is
+informational, not architectural. Eleven model families span 0.027 AUC; tuning
+contributed 0.005 and ensembling 0.003. By comparison, the partitioning leak we
+declined to exploit was worth 0.032, and a single outcome-derived column was
+worth 0.189.
+
+The genomic ceiling of approximately 0.742, now observed in two independently
+curated registries, is best interpreted as the information content of
+\textit{F8} genotype with respect to inhibitor development. Established
+determinants that no public registry records --- treatment intensity, exposure
+days at first bleed, product class (plasma-derived versus recombinant
+\cite{sippet}), surgery or infection at first exposure, and HLA class II typing
+--- are absent by construction. Their absence, not model capacity, bounds these
+estimates.
+
+\subsection{Direction of Effect for Clinical Features}
+Baseline factor activity could in principle be a \textit{consequence} of the
+outcome rather than a predictor of it, since a circulating inhibitor suppresses
+measured FVIII activity. The registry documents these as diagnostic baseline
+values but does not timestamp them relative to inhibitor detection, so this
+concern cannot be fully resolved with these data.
+
+We therefore report the genomic-only rung alongside every headline. A reader
+who rejects the clinical block entirely retains a defensible 0.742 model
+validated across two registries. The clinical contribution is presented as an
+improvement conditional on that assumption, not as a foundation.
+
+\subsection{The Reporting-Region Block}
+The context block contributes $+0.0134$ AUC, and East Asian reporting region
+ranks second in permutation importance. This warrants explicit caution. The
+registry records the reporting laboratory's country, not patient ancestry.
+Observed regional inhibitor rates vary widely (East Asia 45.5\%, $n = 308$;
+South Asia 10.8\%, $n = 297$; North America 90.9\%, $n = 11$), and the extreme
+values rest on very small strata.
+
+Ancestry is a genuine, established risk modifier for inhibitor development, so
+part of this signal may be biological. But it is confounded with centre-level
+screening intensity and publication selection, and we cannot separate the two
+here. A deployment unwilling to accept that confound can use the model without
+the context block at AUC 0.7645, and we recommend this for any use outside the
+regions represented in training.
+
+\subsection{An Anomaly in CRM Typing}
+CRM type did not behave as the underlying immunology predicts. CRM-negative
+(type I) patients, those with no circulating antigen, showed a \textit{lower}
+inhibitor rate (3.8\%, $n = 156$) than CRM-unclassified patients (22.6\%,
+$n = 953$). We attribute this to ascertainment: CRM typing is performed
+selectively, largely on mild and moderate patients with discrepant one-stage
+and chromogenic assays, who are at low baseline inhibitor risk. This is a
+selection effect in the registry rather than a contradiction of the
+immunology, but it means CRM type should not be interpreted causally in this
+cohort.
+
+\subsection{Implications for Cross-Registry Validation}
+The 64.5\% overlap between CHAMP and EAHAD has consequences beyond this study.
+Cross-registry transfer is widely regarded as strong evidence of external
+validity, and in this domain a naive application of it inflated our own
+estimate by 0.085 AUC. Investigators validating \textit{F8} models --- and
+plausibly models built on other curated disease-variant resources compiled from
+shared literature --- should establish variant-level disjointness before
+reporting external performance, and should report the matching procedure, since
+key resolvability interacts with mutation class in a way that can silently
+confound the comparison.
+
+\subsection{Clinical Positioning}
+The model is a research tool and is not a validated medical device. It does not
+replace laboratory inhibitor testing or clinical judgement. Its intended use is
+prioritisation of monitoring intensity during the first fifty exposure days. At
+the balanced operating point it identifies 61.6\% of patients who go on to
+develop inhibitors, at a cost of 166 false positives per 974 patients, with
+negative predictive value 0.914. The clinical consequence of a false positive
+is intensified monitoring, not a change in diagnosis or a withheld therapy ---
+the asymmetry that makes a rule-out threshold defensible at this level of
+discrimination.
+
+% =============================================================================
+\section{Limitations}
+\begin{enumerate}
+\item Both cohorts are compiled from published reports rather than consecutive
+      series. Patients with inhibitors are plausibly more likely to be
+      published, and screening intensity varies by centre.
+\item The temporality of baseline factor measurements relative to inhibitor
+      detection is unresolved (Section~VI-B).
+\item Causal covariates --- treatment intensity, exposure days, product class,
+      HLA typing --- are absent (Section~VI-A).
+\item Reporting region is a confounded proxy for ancestry (Section~VI-C).
+\item The held-out partition is small ($n = 974$, 159 positive), giving wide
+      intervals; the repeated cross-validated estimate is the primary result
+      for this reason.
+\item Scope is a single gene and a single disease; transfer to haemophilia B
+      (\textit{F9}) was not attempted.
+\item All estimates are retrospective and registry-based. No prospective
+      validation was performed.
+\end{enumerate}
+
+% =============================================================================
+\section{Conclusion}
+Genotype-only prediction of FVIII inhibitor risk saturates near AUC 0.74, a
+value we observe independently in two separately curated registries and which
+is therefore best understood as a property of the available data rather than of
+model capacity. Patient-level records carrying individual baseline phenotype
+raise achievable discrimination to $0.786 \pm 0.004$ under strict
+variant-grouped validation, with calibrated probabilities and retained
+performance in unseen reporting centres.
+
+Published accuracies above 95\% do not represent predictive performance. Each
+contributing mechanism --- outcome-derived features, relabelling of unrecorded
+outcomes, and resampling before partitioning --- is reproducible on demand and
+quantified here.
+
+Progress beyond approximately 0.79 will not come from better classifiers. It
+requires prospective cohorts recording treatment intensity, exposure history,
+product class and HLA type. Until such data are available, the honest
+contribution of genotype-based modelling is a calibrated rule-out instrument,
+not a decisive diagnostic.
+
+\section*{Data and Code Availability}
+All code, trained artefacts, result files and the executed analysis notebook
+are available at \url{https://github.com/dchaudhari7177/hemophilia}. Every
+result is regenerated by the released scripts and serialised to JSON. The
+analysis notebook executes eight integrity assertions, including a direct test
+for the over-sampling signature, and fails if any does not hold. The test suite
+comprises 128 tests.
+
+% =============================================================================
+\begin{thebibliography}{00}
+
+% ----------------------------------------------------------------------------
+% VERIFY BEFORE SUBMISSION. The two entries below are described rather than
+% reconstructed from memory, so that no incorrect citation is propagated.
+% ----------------------------------------------------------------------------
+\bibitem{singh} Singh and Singh, ``Random-forest classification of \textit{F8}
+variants for inhibitor prediction,'' 2025. Reports 97.37\% accuracy.
+\textsc{[Citation to be completed from the primary source.]}
+
+\bibitem{eahad} EAHAD/HADB coagulation factor VIII variant resource,
+\textit{Blood Advances}, supplement VTH-2024-000215, 2024.
+\textsc{[Author list, volume, pages and DOI to be completed.]}
+% ----------------------------------------------------------------------------
+
+\bibitem{champ} A. B. Payne, C. H. Miller, F. M. Kelly, J. M. Soucie, and
+W. Craig Hooper, ``The CDC Hemophilia A Mutation Project (CHAMP) mutation
+list: a new online resource,'' \textit{Human Mutation}, vol. 34, no. 2,
+pp. E2382--E2391, 2013.
+
+\bibitem{grantham} R. Grantham, ``Amino acid difference formula to help explain
+protein evolution,'' \textit{Science}, vol. 185, no. 4154, pp. 862--864, 1974.
+
+\bibitem{blosum} S. Henikoff and J. G. Henikoff, ``Amino acid substitution
+matrices from protein blocks,'' \textit{Proc. Natl. Acad. Sci. USA}, vol. 89,
+no. 22, pp. 10915--10919, 1992.
+
+\bibitem{xgboost} T. Chen and C. Guestrin, ``XGBoost: a scalable tree boosting
+system,'' in \textit{Proc. 22nd ACM SIGKDD Int. Conf. Knowledge Discovery and
+Data Mining}, 2016, pp. 785--794.
+
+\bibitem{lightgbm} G. Ke et al., ``LightGBM: a highly efficient gradient
+boosting decision tree,'' in \textit{Advances in Neural Information Processing
+Systems}, 2017.
+
+\bibitem{caruana} R. Caruana, A. Niculescu-Mizil, G. Crew, and A. Ksikes,
+``Ensemble selection from libraries of models,'' in \textit{Proc. 21st Int.
+Conf. Machine Learning}, 2004.
+
+\bibitem{isotonic} B. Zadrozny and C. Elkan, ``Transforming classifier scores
+into accurate multiclass probability estimates,'' in \textit{Proc. 8th ACM
+SIGKDD Int. Conf. Knowledge Discovery and Data Mining}, 2002, pp. 694--699.
+
+\bibitem{delong} E. R. DeLong, D. M. DeLong, and D. L. Clarke-Pearson,
+``Comparing the areas under two or more correlated receiver operating
+characteristic curves: a nonparametric approach,'' \textit{Biometrics},
+vol. 44, no. 3, pp. 837--845, 1988.
+
+\bibitem{dca} A. J. Vickers and E. B. Elkin, ``Decision curve analysis: a novel
+method for evaluating prediction models,'' \textit{Medical Decision Making},
+vol. 26, no. 6, pp. 565--574, 2006.
+
+\bibitem{youden} W. J. Youden, ``Index for rating diagnostic tests,''
+\textit{Cancer}, vol. 3, no. 1, pp. 32--35, 1950.
+
+\bibitem{sippet} F. Peyvandi et al., ``A randomized trial of factor VIII and
+neutralizing antibodies in hemophilia A,'' \textit{New England Journal of
+Medicine}, vol. 374, no. 21, pp. 2054--2064, 2016.
+
+\bibitem{gouw} S. C. Gouw, H. M. van den Berg, J. Oldenburg et al.,
+``\textit{F8} gene mutation type and inhibitor development in patients with
+severe hemophilia A: systematic review and meta-analysis,'' \textit{Blood},
+vol. 119, no. 12, pp. 2922--2934, 2012.
+\textsc{[Page range to be verified.]}
+
+\end{thebibliography}
+
+\end{document}
